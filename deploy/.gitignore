@@ -1,0 +1,3 @@
+# Secrets and rendered artifacts — never commit.
+.env
+config/control-plane.yaml

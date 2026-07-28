@@ -1,0 +1,70 @@
+# RavenScale control-plane config TEMPLATE.
+#
+# install.sh / upgrade.sh render this to control-plane.yaml with envsubst,
+# substituting ONLY ${HS_SERVER_URL} and ${HS_BASE_DOMAIN} from .env (Headscale
+# does not expand env vars inside its own YAML). The rendered file is gitignored.
+#
+# This is a MINIMAL, boots-clean Headscale config used by the P0-5 deploy while
+# the RavenScale fork image (P0-2) is not yet built. It runs the upstream
+# control plane on its native SQLite so the deploy machinery — install, upgrade,
+# health-gating, backup — is real and testable today.
+#
+# THE DATASTORE SEAM: sqld (the libSQL datastore from P0-3, ADR-0005) is stood
+# up alongside this service by docker-compose.yml. Upstream Headscale speaks
+# only sqlite/postgres, so it cannot talk to sqld over the wire. When P0-2 ships
+# the fork image (GORM libSQL dialect), point RAVENSCALE_IMAGE at it and switch
+# the `database` block below to the sqld endpoint (http://sqld:8080). Nothing
+# else in the deploy changes. See deploy/RUNBOOK.md "Datastore seam".
+#
+# Binds are 0.0.0.0 because this runs inside the compose network namespace;
+# host exposure is controlled by the port publishing in docker-compose.yml.
+
+server_url: ${HS_SERVER_URL}
+listen_addr: 0.0.0.0:8080
+metrics_listen_addr: 0.0.0.0:9090
+grpc_listen_addr: 0.0.0.0:50443
+grpc_allow_insecure: false
+
+# Per-Tailnet IP space is 100.64.0.0/10 (ADR-0002). At N=1 the single default
+# Tailnet uses the full range; the multi-tailnet allocator is P1-1.
+prefixes:
+  v4: 100.64.0.0/10
+  v6: fd7a:115c:a1e0::/48
+  allocation: sequential
+
+noise:
+  private_key_path: /var/lib/headscale/noise_private.key
+
+derp:
+  server:
+    enabled: false
+  urls:
+    - https://controlplane.tailscale.com/derpmap/default
+  auto_update_enabled: true
+  update_frequency: 24h
+
+disable_check_updates: true
+ephemeral_node_inactivity_timeout: 30m
+
+database:
+  type: sqlite
+  sqlite:
+    path: /var/lib/headscale/db.sqlite
+    write_ahead_log: true
+
+log:
+  level: info
+  format: text
+
+dns:
+  magic_dns: true
+  # base_domain MUST differ from server_url's host. MagicDNS suffix is
+  # <host>.<tailnet-slug>.<base_domain> once P1-1 lands (ADR-0004); at N=1 the
+  # default tailnet slug is elided by the upstream image.
+  base_domain: ${HS_BASE_DOMAIN}
+  nameservers:
+    global:
+      - 1.1.1.1
+      - 9.9.9.9
+
+# No OIDC at N=1 self-host; pre-auth keys are the join path (CONTEXT §4).

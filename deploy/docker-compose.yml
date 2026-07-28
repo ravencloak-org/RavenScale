@@ -1,0 +1,49 @@
+# RavenScale — full stack (P0-5).
+#
+# The single deploy unit: control plane + libSQL datastore (ADR-0005, no cluster).
+# Do not run `docker compose` here by hand for a first bring-up — use ./install.sh,
+# which preflights, renders config, and health-gates. This file is what it drives.
+#
+#   ./install.sh          # production: real S3 from .env
+#   ./install.sh --dev    # hermetic: bundled MinIO, zero external deps (compose.dev.yml)
+#
+# `include` pulls in the P0-3 datastore unit verbatim, so the datastore is owned
+# and evolved in one place (deploy/datastore/) and the full stack composes it.
+name: ravenscale
+
+include:
+  - path: datastore/docker-compose.yml
+    env_file: .env
+
+services:
+  control-plane:
+    # SWAP POINT: default is upstream Headscale (native sqlite) as a real,
+    # health-checkable stand-in until P0-2 ships the RavenScale fork image that
+    # binds GORM to sqld. Set RAVENSCALE_IMAGE in .env to the fork image and
+    # switch config/control-plane.yaml.tmpl's database block to http://sqld:8080.
+    # See deploy/RUNBOOK.md "Datastore seam".
+    image: ${RAVENSCALE_IMAGE:-ghcr.io/juanfont/headscale:v0.26.1}
+    command: serve
+    restart: unless-stopped
+    depends_on:
+      # sqld has no in-container healthcheck (see datastore compose), so this is
+      # start-ordering only; real readiness is gated by install.sh/wait-health.sh.
+      - sqld
+    volumes:
+      - ./config/control-plane.yaml:/etc/headscale/config.yaml:ro
+      - control-plane-data:/var/lib/headscale
+    ports:
+      # Control plane is the one public surface. Clients connect here.
+      - "${HS_BIND:-0.0.0.0:8080}:8080"
+      # Metrics/debug — keep private. Loopback by default.
+      - "${HS_METRICS_BIND:-127.0.0.1:9090}:9090"
+    healthcheck:
+      # Upstream Headscale ships a shell; use its own /health (app.go).
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/health >/dev/null 2>&1 || exit 1"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+volumes:
+  control-plane-data:
