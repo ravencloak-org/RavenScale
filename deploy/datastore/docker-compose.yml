@@ -13,18 +13,26 @@ services:
   sqld:
     image: ghcr.io/tursodatabase/libsql-server:${SQLD_VERSION:-latest}
     restart: unless-stopped
+    # List form (not a map) so SQLD_AUTH_JWT_KEY can be a *conditional* passthrough:
+    # libsql-server enables JWT auth whenever that var is PRESENT, even if empty —
+    # an empty value yields "auth on, no valid key" and 401s every query. The
+    # documented contract is empty = OPEN, so the key is passed as a bare entry
+    # (`- SQLD_AUTH_JWT_KEY`): compose forwards it only when it is set in the
+    # environment, and omits it entirely when unset. install.sh/upgrade.sh unset
+    # it when empty; set a real key in .env to turn auth on. Matches how the P0-3
+    # restore drill runs sqld (no auth var => open).
     environment:
-      SQLD_HTTP_LISTEN_ADDR: 0.0.0.0:8080
-      SQLD_DB_PATH: /var/lib/sqld/ravenscale.db
+      - SQLD_HTTP_LISTEN_ADDR=0.0.0.0:8080
+      - SQLD_DB_PATH=/var/lib/sqld/ravenscale.db
       # --- WAL -> S3 backup (bottomless) ---
-      SQLD_ENABLE_BOTTOMLESS_REPLICATION: "true"
-      LIBSQL_BOTTOMLESS_BUCKET: ${S3_BUCKET}
-      LIBSQL_BOTTOMLESS_ENDPOINT: ${S3_ENDPOINT}
-      LIBSQL_BOTTOMLESS_AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
-      LIBSQL_BOTTOMLESS_AWS_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
-      LIBSQL_BOTTOMLESS_AWS_DEFAULT_REGION: ${S3_REGION:-us-east-1}
-      # --- auth: JWT (Ed25519). Empty = OPEN; set before exposing anywhere. ---
-      SQLD_AUTH_JWT_KEY: ${SQLD_AUTH_JWT_KEY:-}
+      - SQLD_ENABLE_BOTTOMLESS_REPLICATION=true
+      - LIBSQL_BOTTOMLESS_BUCKET=${S3_BUCKET}
+      - LIBSQL_BOTTOMLESS_ENDPOINT=${S3_ENDPOINT}
+      - LIBSQL_BOTTOMLESS_AWS_ACCESS_KEY_ID=${S3_ACCESS_KEY_ID}
+      - LIBSQL_BOTTOMLESS_AWS_SECRET_ACCESS_KEY=${S3_SECRET_ACCESS_KEY}
+      - LIBSQL_BOTTOMLESS_AWS_DEFAULT_REGION=${S3_REGION:-us-east-1}
+      # --- auth: JWT (Ed25519). Empty/unset = OPEN; set to enable. See note above. ---
+      - SQLD_AUTH_JWT_KEY
     volumes:
       - sqld-data:/var/lib/sqld
     ports:

@@ -1,0 +1,49 @@
+# RavenScale — dev/verify overlay (P0-5).
+#
+# Adds a bundled MinIO as the S3 backend so the full stack comes up on a clean
+# machine with nothing but Docker — no external S3. Same pattern the P0-3
+# restore drill uses. NOT for production: real deploys point .env at real S3 and
+# omit this overlay.
+#
+#   docker compose -f docker-compose.yml -f compose.dev.yml up -d
+#
+# install.sh --dev wires this for you and sets the matching S3_* in .env.
+name: ravenscale
+
+services:
+  minio:
+    image: ${MINIO_IMAGE:-minio/minio:latest}
+    restart: unless-stopped
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY_ID:-minioadmin}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_ACCESS_KEY:-minioadmin}
+    volumes:
+      - minio-data:/data
+
+  # One-shot: create the backup bucket, then exit 0. sqld waits on this.
+  minio-setup:
+    image: ${MC_IMAGE:-minio/mc:latest}
+    depends_on:
+      - minio
+    entrypoint: ["sh", "-c"]
+    command:
+      - >
+        until mc alias set m http://minio:9000 "$${S3_ACCESS_KEY_ID:-minioadmin}" "$${S3_SECRET_ACCESS_KEY:-minioadmin}" >/dev/null 2>&1; do
+          echo "waiting for minio..."; sleep 1;
+        done;
+        mc mb -p "m/$${S3_BUCKET:-ravenscale-db}" >/dev/null 2>&1 || true;
+        echo "bucket $${S3_BUCKET:-ravenscale-db} ready"
+    environment:
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-minioadmin}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-minioadmin}
+      S3_BUCKET: ${S3_BUCKET:-ravenscale-db}
+
+  # sqld must not start replicating until the bucket exists.
+  sqld:
+    depends_on:
+      minio-setup:
+        condition: service_completed_successfully
+
+volumes:
+  minio-data:
