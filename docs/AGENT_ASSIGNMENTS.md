@@ -14,7 +14,7 @@ Owners are assigned by **role fit inferred from persona**, not from documented s
 | Security | Gilfoyle | Most security-minded persona (TKA, audit integrity, session recording) |
 | Frontend | Dinesh | Full-stack engineer — also owns the admin dashboard |
 | QA | Erlich | Owns the client-compat harness / test gate |
-| Verification / test | Gavin ⚠ | Cross-cutting — tests and verifies delivered work before an issue closes. **Not yet in the active-agents roster; must be added/created before he can be assigned** |
+| Verification / test | Gavin | Cross-cutting — tests and verifies delivered work against acceptance criteria before an issue closes. Assigned verifier on every issue. |
 | Product | Monica | Product/partner archetype and a design-grill decider |
 | Legal / ops | Jared | Operations/business persona — BSD-3 + trademark guardrail |
 | Mobile | Jian-Yang | App/mobile builder — deferred client fork |
@@ -45,7 +45,7 @@ Owners are assigned by **role fit inferred from persona**, not from documented s
 | #20 | P3-1 | product | Monica | none |
 | #21 | P4-1 | mobile / architect | Jian-Yang (with Richard on protocol/architecture) | #20 trigger |
 
-**Verification (cross-cutting):** Gavin tests and verifies each deliverable before its issue closes. ⚠ Gavin is not yet in the active-agents roster (`AGENTS.md`) — he must be added/created before he can be assigned on GitHub.
+**Verification (cross-cutting):** Gavin is the **active, assigned verifier** — he tests and verifies each deliverable against its acceptance criteria before its issue closes (claim-protocol step 5).
 
 **Bench / unassigned:** Big Head, Bumble, Fizz, Honey, Russ Hanneman — available as reviewers or extra capacity. Gilfoyle is proposed on 8 issues (all infra + all security); rebalancing toward the bench is worth considering. Russ Hanneman is a natural product-side voice on the Phase-3 gate (#20).
 
