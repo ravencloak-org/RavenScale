@@ -19,7 +19,7 @@ fast, and defer the expensive client fork until a paying customer forces it.
 ## AGENT ROLES AVAILABLE (assign each task to the best-fit role)
 - ARCHITECT (tech lead: sequencing, protocol/TKA design, cross-cutting decisions)
 - BACKEND (control-plane Go engineering: forked Headscale core, API, capabilities)
-- INFRA/SRE (Postgres, HA/clustering, DERP/ingress relays, log pipelines, CI)
+- INFRA/SRE (libSQL/SQLite datastore, HA/clustering, DERP/ingress relays, log pipelines, CI)
 - FRONTEND (admin dashboard, web UI)
 - MOBILE (deferred — only staffs in Phase 4)
 - SECURITY (Tailnet Lock/TKA, posture, SSH session recording, audit integrity)
@@ -35,7 +35,7 @@ P0-1  [LEGAL]     Confirm BSD-3 obligations for fork + redistribution; flag
                   do/don't guardrail doc.
 P0-2  [BACKEND]   Fork Headscale; remove single-tailnet scope limitation at the
                   data-model level. AC: multi-tenant-ready schema, builds green.
-P0-3  [INFRA]     Production datastore: Postgres, migrations, backup/restore.
+P0-3  [INFRA]     Production datastore: libSQL single-node + WAL→S3 backup, migrations, backup/restore. (Was Postgres; resolved to libSQL — ADR-0005. Revisit clustering/Postgres at HA #11.)
                   AC: documented restore drill passes.
 P0-4  [QA]        Build client-compat test harness pinned to specific official
                   Tailscale client versions; run integration suite in CI.

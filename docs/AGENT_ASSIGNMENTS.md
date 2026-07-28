@@ -69,4 +69,4 @@ Report per task: owner, status, blockers, and acceptance-criteria evidence. If w
 - ADRs: [`docs/adr/`](./adr)
 - Wiki mirror of this mapping: `Team` page in the [project wiki](https://github.com/ravencloak-org/RavenScale/wiki/Team)
 
-> Note: the datastore engine for `P0-3` (#3) is **unresolved** (brief: Postgres; grill: SQLite/libSQL). Confirm with Jobin before that issue starts.
+> Note: the datastore engine for `P0-3` (#3) is **resolved — libSQL single-node + WAL→S3 backup, no cluster** (ADR-0005). Revisit clustering/Postgres at HA #11.

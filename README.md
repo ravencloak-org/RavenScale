@@ -20,7 +20,7 @@ expensive client fork until a paying customer forces it.
 
 | Phase | Theme | Client risk |
 |-------|-------|-------------|
-| 0 | Fork & harden base (multi-tenant schema, Postgres, compat harness) | none |
+| 0 | Fork & harden base (multi-tenant schema, libSQL single-node, compat harness) | none |
 | 1 | Pure server-side differentiation — the wedge (multi-tenancy, control API, admin UI, IdP group sync, audit logs, HA, k8s operator) | none |
 | 2 | Light up client-supported features via signed node capabilities (Serve, App Connectors, posture, Tailnet Lock, SSH recording, flow logs) | low — gated by compat harness |
 | 3 | Decision gate — track the three client-fork triggers (PRODUCT-owned) | — |

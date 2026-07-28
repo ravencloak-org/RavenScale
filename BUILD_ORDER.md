@@ -10,7 +10,7 @@ Foundation. The data model (P0-2) is the root nobody can route around once real 
 
 - **P0-1** [legal] Confirm BSD-3 obligations for fork + redistribution; flag trademark boundaries (no "Tailscale" branding). AC: written do/don't guardrail doc.
 - **P0-2** [backend] Fork Headscale; remove single-tailnet scope at the data-model level. AC: multi-tenant-ready schema, builds green. → design: `CONTEXT.md` §1–2, ADR-0001; N=1 migration ADR-0003.
-- **P0-3** [infra] Production datastore + migrations + backup/restore. AC: documented restore drill passes. *(Brief says Postgres; the grill locked SQLite/libSQL instead — see Open reconciliation below.)*
+- **P0-3** [infra] Production datastore + migrations + backup/restore. AC: documented restore drill passes. → **Resolved: libSQL single-node + WAL→S3 backup, no cluster** (ADR-0005). Revisit clustering/Postgres at HA #11.
 - **P0-4** [qa] Client-compat test harness pinned to specific official Tailscale client versions; run in CI. AC: CI red on protocol drift. Depends: P0-2.
 - **P0-5** [infra] Clean install/upgrade tooling + ops runbook. AC: one-command deploy + upgrade path.
 
@@ -48,6 +48,6 @@ Capabilities + infra. Every task must pass the P0-4 compat harness before merge.
 
 - **P4-1** [mobile] Fork open-source tailscaled; build branded GUI + mobile apps; unlock truly-locked features. Cut the client dependency. Blocked-by: P3-1 trigger.
 
-## Open reconciliation
+## Reconciliation (resolved)
 
-- **Datastore: brief says Postgres (P0-3), grill locked SQLite/libSQL (Turso) with app-layer scoping (`CONTEXT.md` §2, no RLS).** These conflict. The grill decision is newer and deliberate, but the brief predates it — flag for Jobin before P0-3 starts. The rest of the design-grill ceilings (DB-per-tenant, external per-tenant IdP, cross-Tailnet devices) are deferred and additive; see `CONTEXT.md` "Known ceilings".
+- **Datastore — RESOLVED 2026-07-28: libSQL single-node + WAL→S3 backup, no cluster** (ADR-0005; `RESEARCH/DATASTORE_LIBSQL_VS_POSTGRES.md`). Postgres line in the brief for P0-3 is superseded. Tenant isolation stays app-layer (no RLS). Reversible via GORM dialect abstraction — revisit clustering (LiteFS/rqlite) or Postgres at HA #11 with real load data. The remaining design-grill ceilings (DB-per-tenant, external per-tenant IdP, cross-Tailnet devices) are deferred and additive; see `CONTEXT.md` "Known ceilings".
