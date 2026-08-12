@@ -1,0 +1,42 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "7a682ac6dcab",
+  "session_id": "a3748748-7a69-4fca-ab09-8d4c5893c798",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-12T05:10:05.548844Z",
+  "branch": "main",
+  "checkpoints_count": 3,
+  "files_touched": [
+    ".claude/worktrees/agent-a3f1278507674e037/README.md",
+    ".claude/worktrees/agent-a3f1278507674e037/buzzorchestratorbrief.md",
+    ".claude/worktrees/agent-a3f1278507674e037/docs/research/headscale-gorm-migrations.md",
+    ".claude/worktrees/agent-a66f5c10d89c5297a/README.md",
+    ".claude/worktrees/agent-a66f5c10d89c5297a/buzzorchestratorbrief.md",
+    ".claude/worktrees/agent-a85690a60572b841c/README.md",
+    ".claude/worktrees/agent-a85690a60572b841c/buzzorchestratorbrief.md",
+    ".claude/worktrees/agent-ac5e1045136b6ec44/README.md",
+    ".claude/worktrees/agent-ac5e1045136b6ec44/buzzorchestratorbrief.md",
+    "AGENTS.md",
+    "docs/agents/domain.md",
+    "docs/agents/issue-tracker.md",
+    "docs/agents/triage-labels.md"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "b7d89fc2-3f22-4f24-bea7-508a6e5e0802",
+  "token_usage": {
+    "input_tokens": 71934,
+    "cache_creation_tokens": 853901,
+    "cache_read_tokens": 6992293,
+    "output_tokens": 154340,
+    "api_call_count": 75
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-12T05:10:05.475226Z",
+    "agent_lines": 0,
+    "human_added": 0,
+    "human_modified": 195,
+    "human_removed": 492,
+    "total_committed": 195,
+    "agent_percentage": 0
+  }
+}

@@ -1,0 +1,38 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "7a682ac6dcab",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 3,
+  "files_touched": [
+    ".claude/worktrees/agent-a3f1278507674e037/README.md",
+    ".claude/worktrees/agent-a3f1278507674e037/buzzorchestratorbrief.md",
+    ".claude/worktrees/agent-a3f1278507674e037/docs/research/headscale-gorm-migrations.md",
+    ".claude/worktrees/agent-a66f5c10d89c5297a/README.md",
+    ".claude/worktrees/agent-a66f5c10d89c5297a/buzzorchestratorbrief.md",
+    ".claude/worktrees/agent-a85690a60572b841c/README.md",
+    ".claude/worktrees/agent-a85690a60572b841c/buzzorchestratorbrief.md",
+    ".claude/worktrees/agent-ac5e1045136b6ec44/README.md",
+    ".claude/worktrees/agent-ac5e1045136b6ec44/buzzorchestratorbrief.md",
+    "AGENTS.md",
+    "docs/agents/domain.md",
+    "docs/agents/issue-tracker.md",
+    "docs/agents/triage-labels.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/7a/682ac6dcab/0/metadata.json",
+      "transcript": "/7a/682ac6dcab/0/full.jsonl",
+      "context": "/7a/682ac6dcab/0/context.md",
+      "content_hash": "/7a/682ac6dcab/0/content_hash.txt",
+      "prompt": "/7a/682ac6dcab/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 71934,
+    "cache_creation_tokens": 853901,
+    "cache_read_tokens": 6992293,
+    "output_tokens": 154340,
+    "api_call_count": 75
+  }
+}
