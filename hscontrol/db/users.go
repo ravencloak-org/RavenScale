@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
@@ -19,8 +20,8 @@ var (
 	ErrUserNotUnique         = errors.New("expected exactly one user")
 )
 
-func (hsdb *HSDatabase) CreateUser(user types.User) (*types.User, error) {
-	return Write(hsdb.DB, func(tx *gorm.DB) (*types.User, error) {
+func (hsdb *HSDatabase) CreateUser(ctx context.Context, user types.User) (*types.User, error) {
+	return Write(ctx, hsdb.DB, func(tx *gorm.DB) (*types.User, error) {
 		return CreateUser(tx, user)
 	})
 }
@@ -41,8 +42,8 @@ func CreateUser(tx *gorm.DB, user types.User) (*types.User, error) {
 	return &user, nil
 }
 
-func (hsdb *HSDatabase) DestroyUser(uid types.UserID) error {
-	return hsdb.Write(func(tx *gorm.DB) error {
+func (hsdb *HSDatabase) DestroyUser(ctx context.Context, uid types.UserID) error {
+	return hsdb.Write(ctx, func(tx *gorm.DB) error {
 		return DestroyUser(tx, uid)
 	})
 }
@@ -84,8 +85,8 @@ func DestroyUser(tx *gorm.DB, uid types.UserID) error {
 	return nil
 }
 
-func (hsdb *HSDatabase) RenameUser(uid types.UserID, newName string) error {
-	return hsdb.Write(func(tx *gorm.DB) error {
+func (hsdb *HSDatabase) RenameUser(ctx context.Context, uid types.UserID, newName string) error {
+	return hsdb.Write(ctx, func(tx *gorm.DB) error {
 		return RenameUser(tx, uid, newName)
 	})
 }
@@ -136,8 +137,8 @@ func GetUserByID(tx *gorm.DB, uid types.UserID) (*types.User, error) {
 	return &user, nil
 }
 
-func (hsdb *HSDatabase) GetUserByOIDCIdentifier(id string) (*types.User, error) {
-	return Read(hsdb.DB, func(rx *gorm.DB) (*types.User, error) {
+func (hsdb *HSDatabase) GetUserByOIDCIdentifier(ctx context.Context, id string) (*types.User, error) {
+	return Read(ctx, hsdb.DB, func(rx *gorm.DB) (*types.User, error) {
 		return GetUserByOIDCIdentifier(rx, id)
 	})
 }
@@ -222,7 +223,7 @@ func (hsdb *HSDatabase) CreateUserForTest(name ...string) *types.User {
 		userName = name[0]
 	}
 
-	user, err := hsdb.CreateUser(types.User{Name: userName})
+	user, err := hsdb.CreateUser(context.Background(), types.User{Name: userName})
 	if err != nil {
 		panic(fmt.Sprintf("failed to create test user: %v", err))
 	}

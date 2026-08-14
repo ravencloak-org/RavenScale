@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/netip"
@@ -90,8 +91,8 @@ func ListNodes(tx *gorm.DB, nodeIDs ...types.NodeID) (types.Nodes, error) {
 	return nodes, nil
 }
 
-func (hsdb *HSDatabase) ListEphemeralNodes() (types.Nodes, error) {
-	return Read(hsdb.DB, func(rx *gorm.DB) (types.Nodes, error) {
+func (hsdb *HSDatabase) ListEphemeralNodes(ctx context.Context) (types.Nodes, error) {
+	return Read(ctx, hsdb.DB, func(rx *gorm.DB) (types.Nodes, error) {
 		nodes := types.Nodes{}
 
 		err := rx.Joins("AuthKey").Where(`"AuthKey"."ephemeral" = true`).Find(&nodes).Error
@@ -103,8 +104,8 @@ func (hsdb *HSDatabase) ListEphemeralNodes() (types.Nodes, error) {
 	})
 }
 
-func (hsdb *HSDatabase) getNode(uid types.UserID, name string) (*types.Node, error) {
-	return Read(hsdb.DB, func(rx *gorm.DB) (*types.Node, error) {
+func (hsdb *HSDatabase) getNode(ctx context.Context, uid types.UserID, name string) (*types.Node, error) {
+	return Read(ctx, hsdb.DB, func(rx *gorm.DB) (*types.Node, error) {
 		return getNode(rx, uid, name)
 	})
 }
@@ -166,8 +167,8 @@ func GetNodeByNodeKey(
 
 // SetLastSeen sets a node's last seen field indicating that we
 // have recently communicating with this node.
-func (hsdb *HSDatabase) SetLastSeen(nodeID types.NodeID, lastSeen time.Time) error {
-	return hsdb.Write(func(tx *gorm.DB) error {
+func (hsdb *HSDatabase) SetLastSeen(ctx context.Context, nodeID types.NodeID, lastSeen time.Time) error {
+	return hsdb.Write(ctx, func(tx *gorm.DB) error {
 		return SetLastSeen(tx, nodeID, lastSeen)
 	})
 }
@@ -206,8 +207,8 @@ func RenameNode(tx *gorm.DB,
 	return nil
 }
 
-func (hsdb *HSDatabase) NodeSetExpiry(nodeID types.NodeID, expiry *time.Time) error {
-	return hsdb.Write(func(tx *gorm.DB) error {
+func (hsdb *HSDatabase) NodeSetExpiry(ctx context.Context, nodeID types.NodeID, expiry *time.Time) error {
+	return hsdb.Write(ctx, func(tx *gorm.DB) error {
 		return NodeSetExpiry(tx, nodeID, expiry)
 	})
 }
@@ -218,8 +219,8 @@ func NodeSetExpiry(tx *gorm.DB, nodeID types.NodeID, expiry *time.Time) error {
 	return tx.Model(&types.Node{}).Where("id = ?", nodeID).Update("expiry", expiry).Error
 }
 
-func (hsdb *HSDatabase) DeleteNode(node *types.Node) error {
-	return hsdb.Write(func(tx *gorm.DB) error {
+func (hsdb *HSDatabase) DeleteNode(ctx context.Context, node *types.Node) error {
+	return hsdb.Write(ctx, func(tx *gorm.DB) error {
 		return DeleteNode(tx, node)
 	})
 }
@@ -242,9 +243,10 @@ func DeleteNode(tx *gorm.DB,
 // will remove it straight, and not notify any changes or consider any routes.
 // It is intended for Ephemeral nodes.
 func (hsdb *HSDatabase) DeleteEphemeralNode(
+	ctx context.Context,
 	nodeID types.NodeID,
 ) error {
-	return hsdb.Write(func(tx *gorm.DB) error {
+	return hsdb.Write(ctx, func(tx *gorm.DB) error {
 		err := tx.Unscoped().Delete(&types.Node{}, nodeID).Error
 		if err != nil {
 			return err
@@ -349,10 +351,11 @@ func NodeSetNodeKey(tx *gorm.DB, node *types.Node, nodeKey key.NodePublic) error
 }
 
 func (hsdb *HSDatabase) NodeSetMachineKey(
+	ctx context.Context,
 	node *types.Node,
 	machineKey key.MachinePublic,
 ) error {
-	return hsdb.Write(func(tx *gorm.DB) error {
+	return hsdb.Write(ctx, func(tx *gorm.DB) error {
 		return NodeSetMachineKey(tx, node, machineKey)
 	})
 }
@@ -547,7 +550,7 @@ func (hsdb *HSDatabase) CreateNodeForTest(user *types.User, hostname ...string) 
 	}
 
 	// Create a preauth key for the node
-	pak, err := hsdb.CreatePreAuthKey(user.TypedID(), false, false, nil, nil)
+	pak, err := hsdb.CreatePreAuthKey(context.Background(), user.TypedID(), false, false, nil, nil)
 	if err != nil {
 		panic(fmt.Sprintf("failed to create preauth key for test node: %v", err))
 	}

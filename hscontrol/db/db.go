@@ -1213,15 +1213,15 @@ func (hsdb *HSDatabase) Close() error {
 	return db.Close()
 }
 
-func (hsdb *HSDatabase) Read(fn func(rx *gorm.DB) error) error {
-	rx := hsdb.DB.Begin()
+func (hsdb *HSDatabase) Read(ctx context.Context, fn func(rx *gorm.DB) error) error {
+	rx := hsdb.DB.WithContext(ctx).Begin()
 	defer rx.Rollback()
 
 	return fn(rx)
 }
 
-func Read[T any](db *gorm.DB, fn func(rx *gorm.DB) (T, error)) (T, error) {
-	rx := db.Begin()
+func Read[T any](ctx context.Context, db *gorm.DB, fn func(rx *gorm.DB) (T, error)) (T, error) {
+	rx := db.WithContext(ctx).Begin()
 	defer rx.Rollback()
 
 	ret, err := fn(rx)
@@ -1233,8 +1233,8 @@ func Read[T any](db *gorm.DB, fn func(rx *gorm.DB) (T, error)) (T, error) {
 	return ret, nil
 }
 
-func (hsdb *HSDatabase) Write(fn func(tx *gorm.DB) error) error {
-	tx := hsdb.DB.Begin()
+func (hsdb *HSDatabase) Write(ctx context.Context, fn func(tx *gorm.DB) error) error {
+	tx := hsdb.DB.WithContext(ctx).Begin()
 	defer tx.Rollback()
 
 	err := fn(tx)
@@ -1245,8 +1245,8 @@ func (hsdb *HSDatabase) Write(fn func(tx *gorm.DB) error) error {
 	return tx.Commit().Error
 }
 
-func Write[T any](db *gorm.DB, fn func(tx *gorm.DB) (T, error)) (T, error) {
-	tx := db.Begin()
+func Write[T any](ctx context.Context, db *gorm.DB, fn func(tx *gorm.DB) (T, error)) (T, error) {
+	tx := db.WithContext(ctx).Begin()
 	defer tx.Rollback()
 
 	ret, err := fn(tx)

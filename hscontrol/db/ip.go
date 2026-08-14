@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"crypto/rand"
 	"database/sql"
 	"errors"
@@ -103,6 +104,7 @@ func (i *IPAllocator) stateFor(tailnetID uint) *perTailnetState {
 // when headscale starts and needs to finish its read
 // transaction before any writes to the database occur.
 func NewIPAllocator(
+	ctx context.Context,
 	db *HSDatabase,
 	prefix4, prefix6 *netip.Prefix,
 	strategy types.IPAllocationStrategy,
@@ -125,7 +127,7 @@ func NewIPAllocator(
 	}
 
 	if db != nil {
-		err := db.Read(func(rx *gorm.DB) error {
+		err := db.Read(ctx, func(rx *gorm.DB) error {
 			return rx.Model(&types.Node{}).Select("tailnet_id", "ipv4", "ipv6").Scan(&rows).Error
 		})
 		if err != nil {
@@ -360,13 +362,13 @@ func isTailscaleReservedIP(ip netip.Addr) bool {
 // it will be added.
 // If a prefix type has been removed (IPv4 or IPv6), it
 // will remove the IPs in that family from the node.
-func (db *HSDatabase) BackfillNodeIPs(i *IPAllocator) ([]string, error) {
+func (db *HSDatabase) BackfillNodeIPs(ctx context.Context, i *IPAllocator) ([]string, error) {
 	var (
 		err error
 		ret []string
 	)
 
-	err = db.Write(func(tx *gorm.DB) error {
+	err = db.Write(ctx, func(tx *gorm.DB) error {
 		if i == nil {
 			return fmt.Errorf("backfilling IPs: %w", errIPAllocatorNil)
 		}

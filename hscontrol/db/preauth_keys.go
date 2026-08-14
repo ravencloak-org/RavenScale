@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"slices"
@@ -26,13 +27,14 @@ var (
 )
 
 func (hsdb *HSDatabase) CreatePreAuthKey(
+	ctx context.Context,
 	uid *types.UserID,
 	reusable bool,
 	ephemeral bool,
 	expiration *time.Time,
 	aclTags []string,
 ) (*types.PreAuthKeyNew, error) {
-	return Write(hsdb.DB, func(tx *gorm.DB) (*types.PreAuthKeyNew, error) {
+	return Write(ctx, hsdb.DB, func(tx *gorm.DB) (*types.PreAuthKeyNew, error) {
 		return CreatePreAuthKey(tx, uid, reusable, ephemeral, expiration, aclTags)
 	})
 }
@@ -169,8 +171,8 @@ func CreatePreAuthKey(
 	}, nil
 }
 
-func (hsdb *HSDatabase) ListPreAuthKeys() ([]types.PreAuthKey, error) {
-	return Read(hsdb.DB, ListPreAuthKeys)
+func (hsdb *HSDatabase) ListPreAuthKeys(ctx context.Context) ([]types.PreAuthKey, error) {
+	return Read(ctx, hsdb.DB, ListPreAuthKeys)
 }
 
 // ListPreAuthKeys returns all [types.PreAuthKey] values in the database.
@@ -334,14 +336,14 @@ func DestroyPreAuthKey(tx *gorm.DB, id uint64) error {
 	})
 }
 
-func (hsdb *HSDatabase) ExpirePreAuthKey(id uint64) error {
-	return hsdb.Write(func(tx *gorm.DB) error {
+func (hsdb *HSDatabase) ExpirePreAuthKey(ctx context.Context, id uint64) error {
+	return hsdb.Write(ctx, func(tx *gorm.DB) error {
 		return ExpirePreAuthKey(tx, id)
 	})
 }
 
-func (hsdb *HSDatabase) DeletePreAuthKey(id uint64) error {
-	return hsdb.Write(func(tx *gorm.DB) error {
+func (hsdb *HSDatabase) DeletePreAuthKey(ctx context.Context, id uint64) error {
+	return hsdb.Write(ctx, func(tx *gorm.DB) error {
 		return DestroyPreAuthKey(tx, id)
 	})
 }

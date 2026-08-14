@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"testing"
 
 	"github.com/juanfont/headscale/hscontrol/types"
@@ -21,7 +22,7 @@ func TestCreateAndDestroyUser(t *testing.T) {
 	require.NoError(t, err)
 	assert.Len(t, users, 1)
 
-	err = db.DestroyUser(types.UserID(user.ID))
+	err = db.DestroyUser(context.Background(), types.UserID(user.ID))
 	require.NoError(t, err)
 
 	_, err = db.GetUserByID(types.UserID(user.ID))
@@ -38,7 +39,7 @@ func TestDestroyUserErrors(t *testing.T) {
 			test: func(t *testing.T, db *HSDatabase) {
 				t.Helper()
 
-				err := db.DestroyUser(9998)
+				err := db.DestroyUser(context.Background(), 9998)
 				assert.ErrorIs(t, err, ErrUserNotFound)
 			},
 		},
@@ -49,10 +50,10 @@ func TestDestroyUserErrors(t *testing.T) {
 
 				user := db.CreateUserForTest("test")
 
-				pak, err := db.CreatePreAuthKey(user.TypedID(), false, false, nil, nil)
+				pak, err := db.CreatePreAuthKey(context.Background(), user.TypedID(), false, false, nil, nil)
 				require.NoError(t, err)
 
-				err = db.DestroyUser(types.UserID(user.ID))
+				err = db.DestroyUser(context.Background(), types.UserID(user.ID))
 				require.NoError(t, err)
 
 				// Verify preauth key was deleted (need to search by prefix for new keys)
@@ -67,10 +68,10 @@ func TestDestroyUserErrors(t *testing.T) {
 			test: func(t *testing.T, db *HSDatabase) {
 				t.Helper()
 
-				user, err := db.CreateUser(types.User{Name: "test"})
+				user, err := db.CreateUser(context.Background(), types.User{Name: "test"})
 				require.NoError(t, err)
 
-				pak, err := db.CreatePreAuthKey(user.TypedID(), false, false, nil, nil)
+				pak, err := db.CreatePreAuthKey(context.Background(), user.TypedID(), false, false, nil, nil)
 				require.NoError(t, err)
 
 				pakID := pak.ID
@@ -85,7 +86,7 @@ func TestDestroyUserErrors(t *testing.T) {
 				trx := db.DB.Save(&node)
 				require.NoError(t, trx.Error)
 
-				err = db.DestroyUser(types.UserID(user.ID))
+				err = db.DestroyUser(context.Background(), types.UserID(user.ID))
 				assert.ErrorIs(t, err, ErrUserStillHasNodes)
 			},
 		},
@@ -97,7 +98,7 @@ func TestDestroyUserErrors(t *testing.T) {
 			test: func(t *testing.T, db *HSDatabase) {
 				t.Helper()
 
-				user, err := db.CreateUser(types.User{Name: "test"})
+				user, err := db.CreateUser(context.Background(), types.User{Name: "test"})
 				require.NoError(t, err)
 
 				// Create a tagged node with no user_id (the rule for tagged nodes).
@@ -110,7 +111,7 @@ func TestDestroyUserErrors(t *testing.T) {
 				trx := db.DB.Save(&node)
 				require.NoError(t, trx.Error)
 
-				err = db.DestroyUser(types.UserID(user.ID))
+				err = db.DestroyUser(context.Background(), types.UserID(user.ID))
 				require.NoError(t, err)
 
 				// User is gone.
@@ -133,7 +134,7 @@ func TestDestroyUserErrors(t *testing.T) {
 			test: func(t *testing.T, db *HSDatabase) {
 				t.Helper()
 
-				user, err := db.CreateUser(types.User{Name: "test"})
+				user, err := db.CreateUser(context.Background(), types.User{Name: "test"})
 				require.NoError(t, err)
 
 				// Tagged node: no user_id.
@@ -156,7 +157,7 @@ func TestDestroyUserErrors(t *testing.T) {
 				trx = db.DB.Save(&ownedNode)
 				require.NoError(t, trx.Error)
 
-				err = db.DestroyUser(types.UserID(user.ID))
+				err = db.DestroyUser(context.Background(), types.UserID(user.ID))
 				require.ErrorIs(t, err, ErrUserStillHasNodes)
 			},
 		},
@@ -172,24 +173,24 @@ func TestDestroyUserErrors(t *testing.T) {
 				userB := db.CreateUserForTest("userb")
 
 				// Create 2 keys for userA, 1 key for userB.
-				_, err := db.CreatePreAuthKey(userA.TypedID(), false, false, nil, nil)
+				_, err := db.CreatePreAuthKey(context.Background(), userA.TypedID(), false, false, nil, nil)
 				require.NoError(t, err)
-				_, err = db.CreatePreAuthKey(userA.TypedID(), false, false, nil, nil)
+				_, err = db.CreatePreAuthKey(context.Background(), userA.TypedID(), false, false, nil, nil)
 				require.NoError(t, err)
-				_, err = db.CreatePreAuthKey(userB.TypedID(), false, false, nil, nil)
+				_, err = db.CreatePreAuthKey(context.Background(), userB.TypedID(), false, false, nil, nil)
 				require.NoError(t, err)
 
 				// Sanity check: 3 keys exist.
-				allKeys, err := db.ListPreAuthKeys()
+				allKeys, err := db.ListPreAuthKeys(context.Background())
 				require.NoError(t, err)
 				require.Len(t, allKeys, 3)
 
 				// Delete userB.
-				err = db.DestroyUser(types.UserID(userB.ID))
+				err = db.DestroyUser(context.Background(), types.UserID(userB.ID))
 				require.NoError(t, err)
 
 				// Only userA's 2 keys should remain.
-				remaining, err := db.ListPreAuthKeys()
+				remaining, err := db.ListPreAuthKeys(context.Background())
 				require.NoError(t, err)
 				assert.Len(t, remaining, 2,
 					"expected 2 keys for userA, got %d — DestroyUser deleted keys from other users",
@@ -231,7 +232,7 @@ func TestRenameUser(t *testing.T) {
 				require.NoError(t, err)
 				assert.Len(t, users, 1)
 
-				err = db.RenameUser(types.UserID(userTest.ID), "test-renamed")
+				err = db.RenameUser(context.Background(), types.UserID(userTest.ID), "test-renamed")
 				require.NoError(t, err)
 
 				users, err = db.ListUsers(&types.User{Name: "test"})
@@ -248,7 +249,7 @@ func TestRenameUser(t *testing.T) {
 			test: func(t *testing.T, db *HSDatabase) {
 				t.Helper()
 
-				err := db.RenameUser(99988, "test")
+				err := db.RenameUser(context.Background(), 99988, "test")
 				assert.ErrorIs(t, err, ErrUserNotFound)
 			},
 		},
@@ -263,7 +264,7 @@ func TestRenameUser(t *testing.T) {
 				assert.Equal(t, "test", userTest.Name)
 				assert.Equal(t, "test2", userTest2.Name)
 
-				err := db.RenameUser(types.UserID(userTest2.ID), "test")
+				err := db.RenameUser(context.Background(), types.UserID(userTest2.ID), "test")
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), "UNIQUE constraint failed")
 			},

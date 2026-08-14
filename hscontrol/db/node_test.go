@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
 	"math/big"
@@ -29,12 +30,12 @@ func TestGetNode(t *testing.T) {
 
 	user := db.CreateUserForTest("test")
 
-	_, err = db.getNode(types.UserID(user.ID), "testnode")
+	_, err = db.getNode(context.Background(), types.UserID(user.ID), "testnode")
 	require.Error(t, err)
 
 	node := db.CreateNodeForTest(user, "testnode")
 
-	_, err = db.getNode(types.UserID(user.ID), "testnode")
+	_, err = db.getNode(context.Background(), types.UserID(user.ID), "testnode")
 	require.NoError(t, err)
 	assert.Equal(t, "testnode", node.Hostname)
 }
@@ -62,10 +63,10 @@ func TestHardDeleteNode(t *testing.T) {
 	user := db.CreateUserForTest("test")
 	node := db.CreateNodeForTest(user, "testnode3")
 
-	err = db.DeleteNode(node)
+	err = db.DeleteNode(context.Background(), node)
 	require.NoError(t, err)
 
-	_, err = db.getNode(types.UserID(user.ID), "testnode3")
+	_, err = db.getNode(context.Background(), types.UserID(user.ID), "testnode3")
 	require.Error(t, err)
 }
 
@@ -94,15 +95,15 @@ func TestExpireNode(t *testing.T) {
 	db, err := newSQLiteTestDB()
 	require.NoError(t, err)
 
-	user, err := db.CreateUser(types.User{Name: "test"})
+	user, err := db.CreateUser(context.Background(), types.User{Name: "test"})
 	require.NoError(t, err)
 
-	pak, err := db.CreatePreAuthKey(user.TypedID(), false, false, nil, nil)
+	pak, err := db.CreatePreAuthKey(context.Background(), user.TypedID(), false, false, nil, nil)
 	require.NoError(t, err)
 
 	pakID := pak.ID
 
-	_, err = db.getNode(types.UserID(user.ID), "testnode")
+	_, err = db.getNode(context.Background(), types.UserID(user.ID), "testnode")
 	require.Error(t, err)
 
 	nodeKey := key.NewNode()
@@ -120,17 +121,17 @@ func TestExpireNode(t *testing.T) {
 	}
 	db.DB.Save(node)
 
-	nodeFromDB, err := db.getNode(types.UserID(user.ID), "testnode")
+	nodeFromDB, err := db.getNode(context.Background(), types.UserID(user.ID), "testnode")
 	require.NoError(t, err)
 	require.NotNil(t, nodeFromDB)
 
 	assert.False(t, nodeFromDB.IsExpired())
 
 	now := time.Now()
-	err = db.NodeSetExpiry(nodeFromDB.ID, &now)
+	err = db.NodeSetExpiry(context.Background(), nodeFromDB.ID, &now)
 	require.NoError(t, err)
 
-	nodeFromDB, err = db.getNode(types.UserID(user.ID), "testnode")
+	nodeFromDB, err = db.getNode(context.Background(), types.UserID(user.ID), "testnode")
 	require.NoError(t, err)
 
 	assert.True(t, nodeFromDB.IsExpired())
@@ -140,10 +141,10 @@ func TestDisableNodeExpiry(t *testing.T) {
 	db, err := newSQLiteTestDB()
 	require.NoError(t, err)
 
-	user, err := db.CreateUser(types.User{Name: "test"})
+	user, err := db.CreateUser(context.Background(), types.User{Name: "test"})
 	require.NoError(t, err)
 
-	pak, err := db.CreatePreAuthKey(user.TypedID(), false, false, nil, nil)
+	pak, err := db.CreatePreAuthKey(context.Background(), user.TypedID(), false, false, nil, nil)
 	require.NoError(t, err)
 
 	pakID := pak.ID
@@ -161,18 +162,18 @@ func TestDisableNodeExpiry(t *testing.T) {
 
 	// Set an expiry first.
 	past := time.Now().Add(-time.Hour)
-	err = db.NodeSetExpiry(node.ID, &past)
+	err = db.NodeSetExpiry(context.Background(), node.ID, &past)
 	require.NoError(t, err)
 
-	nodeFromDB, err := db.getNode(types.UserID(user.ID), "testnode")
+	nodeFromDB, err := db.getNode(context.Background(), types.UserID(user.ID), "testnode")
 	require.NoError(t, err)
 	assert.True(t, nodeFromDB.IsExpired(), "node should be expired")
 
 	// Disable expiry by setting nil.
-	err = db.NodeSetExpiry(node.ID, nil)
+	err = db.NodeSetExpiry(context.Background(), node.ID, nil)
 	require.NoError(t, err)
 
-	nodeFromDB, err = db.getNode(types.UserID(user.ID), "testnode")
+	nodeFromDB, err = db.getNode(context.Background(), types.UserID(user.ID), "testnode")
 	require.NoError(t, err)
 	assert.False(t, nodeFromDB.IsExpired(), "node should not be expired after disabling expiry")
 	assert.Nil(t, nodeFromDB.Expiry, "expiry should be nil after disabling")
@@ -306,11 +307,11 @@ func TestAutoApproveRoutes(t *testing.T) {
 				adb, err := newSQLiteTestDB()
 				require.NoError(t, err)
 
-				user, err := adb.CreateUser(types.User{Name: "test"})
+				user, err := adb.CreateUser(context.Background(), types.User{Name: "test"})
 				require.NoError(t, err)
-				_, err = adb.CreateUser(types.User{Name: "test2"})
+				_, err = adb.CreateUser(context.Background(), types.User{Name: "test2"})
 				require.NoError(t, err)
-				taggedUser, err := adb.CreateUser(types.User{Name: "tagged"})
+				taggedUser, err := adb.CreateUser(context.Background(), types.User{Name: "tagged"})
 				require.NoError(t, err)
 
 				node := types.Node{
@@ -525,13 +526,13 @@ func TestListEphemeralNodes(t *testing.T) {
 		t.Fatalf("creating db: %s", err)
 	}
 
-	user, err := db.CreateUser(types.User{Name: "test"})
+	user, err := db.CreateUser(context.Background(), types.User{Name: "test"})
 	require.NoError(t, err)
 
-	pak, err := db.CreatePreAuthKey(user.TypedID(), false, false, nil, nil)
+	pak, err := db.CreatePreAuthKey(context.Background(), user.TypedID(), false, false, nil, nil)
 	require.NoError(t, err)
 
-	pakEph, err := db.CreatePreAuthKey(user.TypedID(), false, true, nil, nil)
+	pakEph, err := db.CreatePreAuthKey(context.Background(), user.TypedID(), false, true, nil, nil)
 	require.NoError(t, err)
 
 	pakID := pak.ID
@@ -566,7 +567,7 @@ func TestListEphemeralNodes(t *testing.T) {
 	nodes, err := db.ListNodes()
 	require.NoError(t, err)
 
-	ephemeralNodes, err := db.ListEphemeralNodes()
+	ephemeralNodes, err := db.ListEphemeralNodes(context.Background())
 	require.NoError(t, err)
 
 	assert.Len(t, nodes, 2)
@@ -585,10 +586,10 @@ func TestListPeers(t *testing.T) {
 		t.Fatalf("creating db: %s", err)
 	}
 
-	user, err := db.CreateUser(types.User{Name: "test"})
+	user, err := db.CreateUser(context.Background(), types.User{Name: "test"})
 	require.NoError(t, err)
 
-	user2, err := db.CreateUser(types.User{Name: "user2"})
+	user2, err := db.CreateUser(context.Background(), types.User{Name: "user2"})
 	require.NoError(t, err)
 
 	node1 := types.Node{
@@ -671,10 +672,10 @@ func TestListNodes(t *testing.T) {
 		t.Fatalf("creating db: %s", err)
 	}
 
-	user, err := db.CreateUser(types.User{Name: "test"})
+	user, err := db.CreateUser(context.Background(), types.User{Name: "test"})
 	require.NoError(t, err)
 
-	user2, err := db.CreateUser(types.User{Name: "user2"})
+	user2, err := db.CreateUser(context.Background(), types.User{Name: "user2"})
 	require.NoError(t, err)
 
 	node1 := types.Node{

@@ -1,6 +1,7 @@
 package db
 
 import (
+	"context"
 	"fmt"
 	"net/netip"
 	"strings"
@@ -148,7 +149,7 @@ func TestIPAllocatorSequential(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			db := tt.dbFunc()
 
-			alloc, _ := NewIPAllocator(
+			alloc, _ := NewIPAllocator(context.Background(),
 				db,
 				tt.prefix4,
 				tt.prefix6,
@@ -258,7 +259,7 @@ func TestIPAllocatorRandom(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			db := tt.dbFunc()
 
-			alloc, _ := NewIPAllocator(db, tt.prefix4, tt.prefix6, types.IPAllocationStrategyRandom)
+			alloc, _ := NewIPAllocator(context.Background(), db, tt.prefix4, tt.prefix6, types.IPAllocationStrategyRandom)
 
 			for range tt.getCount {
 				got4, got6, err := alloc.Next(types.DefaultTailnetID)
@@ -455,7 +456,7 @@ func TestBackfillIPAddresses(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			db := tt.dbFunc()
 
-			alloc, err := NewIPAllocator(
+			alloc, err := NewIPAllocator(context.Background(),
 				db,
 				tt.prefix4,
 				tt.prefix6,
@@ -465,7 +466,7 @@ func TestBackfillIPAddresses(t *testing.T) {
 				t.Fatalf("failed to set up ip alloc: %s", err)
 			}
 
-			logs, err := db.BackfillNodeIPs(alloc)
+			logs, err := db.BackfillNodeIPs(context.Background(), alloc)
 			if err != nil {
 				t.Fatalf("failed to backfill: %s", err)
 			}
@@ -490,7 +491,7 @@ func TestIPAllocatorNextNoReservedIPs(t *testing.T) {
 
 	defer db.Close()
 
-	alloc, err := NewIPAllocator(
+	alloc, err := NewIPAllocator(context.Background(),
 		db,
 		new(tsaddr.CGNATRange()),
 		new(tsaddr.TailscaleULARange()),
@@ -529,7 +530,7 @@ func TestIPAllocatorPerTailnet(t *testing.T) {
 		count         = 50
 	)
 
-	alloc, err := NewIPAllocator(
+	alloc, err := NewIPAllocator(context.Background(),
 		nil,
 		mpp("100.64.0.0/10"),
 		mpp("fd7a:115c:a1e0::/48"),

@@ -231,7 +231,7 @@ func NewState(cfg *types.Config) (*State, error) {
 		return nil, fmt.Errorf("initializing database: %w", err)
 	}
 
-	ipAlloc, err := hsdb.NewIPAllocator(db, cfg.PrefixV4, cfg.PrefixV6, cfg.IPAllocation)
+	ipAlloc, err := hsdb.NewIPAllocator(context.Background(), db, cfg.PrefixV4, cfg.PrefixV6, cfg.IPAllocation)
 	if err != nil {
 		return nil, fmt.Errorf("initializing IP allocator: %w", err)
 	}
@@ -434,7 +434,7 @@ func (s *State) CreateUser(user types.User) (*types.User, change.Change, error) 
 // UpdateUser modifies an existing user using the provided update function within a transaction.
 // Returns the updated user, change set, and any error.
 func (s *State) UpdateUser(userID types.UserID, updateFn func(*types.User) error) (*types.User, change.Change, error) {
-	user, err := hsdb.Write(s.db.DB, func(tx *gorm.DB) (*types.User, error) {
+	user, err := hsdb.Write(context.Background(), s.db.DB, func(tx *gorm.DB) (*types.User, error) {
 		user, err := hsdb.GetUserByID(tx, userID)
 		if err != nil {
 			return nil, err
@@ -472,7 +472,7 @@ func (s *State) UpdateUser(userID types.UserID, updateFn func(*types.User) error
 // It also updates the policy manager to ensure ACL policies referencing the deleted
 // user are re-evaluated immediately, fixing issue #2967.
 func (s *State) DeleteUser(userID types.UserID) (change.Change, error) {
-	err := s.db.DestroyUser(userID)
+	err := s.db.DestroyUser(context.Background(), userID)
 	if err != nil {
 		return change.Change{}, err
 	}
@@ -514,7 +514,7 @@ func (s *State) GetUserByName(name string) (*types.User, error) {
 
 // GetUserByOIDCIdentifier retrieves a user by their OIDC identifier.
 func (s *State) GetUserByOIDCIdentifier(id string) (*types.User, error) {
-	return s.db.GetUserByOIDCIdentifier(id)
+	return s.db.GetUserByOIDCIdentifier(context.Background(), id)
 }
 
 // ListUsersWithFilter retrieves users matching the specified filter criteria.
@@ -614,7 +614,7 @@ func (s *State) SaveNode(node types.NodeView) (types.NodeView, change.Change, er
 func (s *State) DeleteNode(node types.NodeView) (change.Change, error) {
 	s.nodeStore.DeleteNode(node.ID())
 
-	err := s.db.DeleteNode(node.AsStruct())
+	err := s.db.DeleteNode(context.Background(), node.AsStruct())
 	if err != nil {
 		return change.Change{}, err
 	}
@@ -921,7 +921,7 @@ func (s *State) SetNodeExpiry(nodeID types.NodeID, expiry *time.Time) (types.Nod
 	}
 
 	// Persist expiry change to database directly since persistNodeToDB omits expiry.
-	err := s.db.NodeSetExpiry(nodeID, expiry)
+	err := s.db.NodeSetExpiry(context.Background(), nodeID, expiry)
 	if err != nil {
 		return types.NodeView{}, change.Change{}, fmt.Errorf("setting node expiry in database: %w", err)
 	}
@@ -1072,7 +1072,7 @@ func (s *State) RenameNode(nodeID types.NodeID, newName string) (types.NodeView,
 
 // BackfillNodeIPs assigns IP addresses to nodes that don't have them.
 func (s *State) BackfillNodeIPs() ([]string, error) {
-	changes, err := s.db.BackfillNodeIPs(s.ipAlloc)
+	changes, err := s.db.BackfillNodeIPs(context.Background(), s.ipAlloc)
 	if err != nil {
 		return nil, err
 	}
@@ -1431,7 +1431,7 @@ func (s *State) DestroyAPIKey(key types.APIKey) error {
 // CreatePreAuthKey generates a new pre-authentication key for a user.
 // The userID parameter is now optional (can be nil) for system-created tagged keys.
 func (s *State) CreatePreAuthKey(userID *types.UserID, reusable bool, ephemeral bool, expiration *time.Time, aclTags []string) (*types.PreAuthKeyNew, error) {
-	return s.db.CreatePreAuthKey(userID, reusable, ephemeral, expiration, aclTags)
+	return s.db.CreatePreAuthKey(context.Background(), userID, reusable, ephemeral, expiration, aclTags)
 }
 
 // Test helpers for the state layer
@@ -1489,17 +1489,17 @@ func (s *State) GetPreAuthKey(id string) (*types.PreAuthKey, error) {
 
 // ListPreAuthKeys returns all pre-authentication keys for a user.
 func (s *State) ListPreAuthKeys() ([]types.PreAuthKey, error) {
-	return s.db.ListPreAuthKeys()
+	return s.db.ListPreAuthKeys(context.Background())
 }
 
 // ExpirePreAuthKey marks a pre-authentication key as expired.
 func (s *State) ExpirePreAuthKey(id uint64) error {
-	return s.db.ExpirePreAuthKey(id)
+	return s.db.ExpirePreAuthKey(context.Background(), id)
 }
 
 // DeletePreAuthKey permanently deletes a pre-authentication key.
 func (s *State) DeletePreAuthKey(id uint64) error {
-	return s.db.DeletePreAuthKey(id)
+	return s.db.DeletePreAuthKey(context.Background(), id)
 }
 
 // GetAuthCacheEntry retrieves a pending auth request from the cache.
@@ -1776,7 +1776,7 @@ func (s *State) applyAuthNodeUpdate(params authNodeUpdateParams) (types.NodeView
 		updateColumns = append(slices.Clone(nodeUpdateColumns), "AuthKeyID")
 	}
 
-	_, err := hsdb.Write(s.db.DB, func(tx *gorm.DB) (*types.Node, error) {
+	_, err := hsdb.Write(context.Background(), s.db.DB, func(tx *gorm.DB) (*types.Node, error) {
 		err := tx.Select(updateColumns).Updates(updatedNodeView.AsStruct()).Error
 		if err != nil {
 			return nil, fmt.Errorf("saving node: %w", err)
@@ -1944,7 +1944,7 @@ func (s *State) createAndSaveNewNode(params newNodeParams) (types.NodeView, erro
 	}
 
 	// New node - database first to get ID, then [NodeStore]
-	savedNode, err := hsdb.Write(s.db.DB, func(tx *gorm.DB) (*types.Node, error) {
+	savedNode, err := hsdb.Write(context.Background(), s.db.DB, func(tx *gorm.DB) (*types.Node, error) {
 		err := tx.Save(&nodeToRegister).Error
 		if err != nil {
 			return nil, fmt.Errorf("saving node: %w", err)
@@ -2614,7 +2614,7 @@ func (s *State) HandleNodeFromPreAuthKey(
 			return types.NodeView{}, change.Change{}, fmt.Errorf("%w: %d", ErrNodeNotInNodeStore, existingNodeSameUser.ID())
 		}
 
-		_, err = hsdb.Write(s.db.DB, func(tx *gorm.DB) (*types.Node, error) {
+		_, err = hsdb.Write(context.Background(), s.db.DB, func(tx *gorm.DB) (*types.Node, error) {
 			// Explicitly select all node columns so GORM includes nil/zero-value fields
 			// (see nodeUpdateColumns comment). AuthKeyID is normally excluded to
 			// avoid persisting a deleted key's stale reference on MapRequest
