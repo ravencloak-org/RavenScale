@@ -27,7 +27,7 @@ func TestAllocatorConcurrentNextAndBackfillNoRace(t *testing.T) {
 
 	wg.Go(func() {
 		for range iterations {
-			_, _, err := alloc.Next()
+			_, _, err := alloc.Next(types.DefaultTailnetID)
 			if err != nil {
 				return
 			}
@@ -36,12 +36,12 @@ func TestAllocatorConcurrentNextAndBackfillNoRace(t *testing.T) {
 
 	wg.Go(func() {
 		for range iterations {
-			_, err := alloc.allocateNext4()
+			_, err := alloc.allocateNext4(types.DefaultTailnetID)
 			if err != nil {
 				return
 			}
 
-			_, err = alloc.allocateNext6()
+			_, err = alloc.allocateNext6(types.DefaultTailnetID)
 			if err != nil {
 				return
 			}

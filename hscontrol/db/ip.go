@@ -23,30 +23,78 @@ var (
 	errIPAllocatorNil          = errors.New("ip allocator was nil")
 )
 
+// perTailnetState holds the allocation cursor and used-IP set for a single
+// Tailnet. Per ADR-0002 every Tailnet gets its own independent 100.64.0.0/10,
+// so nodes in different Tailnets may legitimately hold identical addresses.
+// Uniqueness is only enforced within a Tailnet, hence one of these per
+// tailnet_id.
+type perTailnetState struct {
+	// Previous IPs handed out for this Tailnet.
+	prev4 netip.Addr
+	prev6 netip.Addr
+
+	// Set of all IPs handed out within this Tailnet.
+	// This might not be in sync with the database,
+	// but it is more conservative. If saves to the
+	// database fails, the IP will be allocated here
+	// until the next restart of Headscale.
+	usedIPs netipx.IPSetBuilder
+}
+
 // IPAllocator is a singleton responsible for allocating
 // IP addresses for nodes and making sure the same
-// address is not handed out twice. There can only be one
-// and it needs to be created before any other database
-// writes occur.
+// address is not handed out twice within a Tailnet. There
+// can only be one and it needs to be created before any
+// other database writes occur.
+//
+// Per ADR-0002 allocation is scoped by tailnet_id: the used-IP set and the
+// allocation cursor live in a [perTailnetState] created lazily on first use of
+// a Tailnet.
 type IPAllocator struct {
 	mu sync.Mutex
 
 	prefix4 *netip.Prefix
 	prefix6 *netip.Prefix
 
-	// Previous IPs handed out
-	prev4 netip.Addr
-	prev6 netip.Addr
-
 	// strategy used for handing out IP addresses.
 	strategy types.IPAllocationStrategy
 
-	// Set of all IPs handed out.
-	// This might not be in sync with the database,
-	// but it is more conservative. If saves to the
-	// database fails, the IP will be allocated here
-	// until the next restart of Headscale.
-	usedIPs netipx.IPSetBuilder
+	// tailnets holds the per-Tailnet allocation state keyed by tailnet_id.
+	tailnets map[uint]*perTailnetState
+}
+
+// stateFor returns the [perTailnetState] for tailnetID, creating and seeding
+// it (network/broadcast reserved, cursor at the network address) on first use.
+// Callers must hold i.mu.
+func (i *IPAllocator) stateFor(tailnetID uint) *perTailnetState {
+	if s, ok := i.tailnets[tailnetID]; ok {
+		return s
+	}
+
+	s := &perTailnetState{}
+
+	// Add network and broadcast addrs to used pool so they
+	// are not handed out to nodes.
+	if i.prefix4 != nil {
+		network4, broadcast4 := util.GetIPPrefixEndpoints(*i.prefix4)
+		s.usedIPs.Add(network4)
+		s.usedIPs.Add(broadcast4)
+
+		// Use network as starting point, it will be used to call .Next()
+		s.prev4 = network4
+	}
+
+	if i.prefix6 != nil {
+		network6, broadcast6 := util.GetIPPrefixEndpoints(*i.prefix6)
+		s.usedIPs.Add(network6)
+		s.usedIPs.Add(broadcast6)
+
+		s.prev6 = network6
+	}
+
+	i.tailnets[tailnetID] = s
+
+	return s
 }
 
 // NewIPAllocator returns a new [IPAllocator] singleton which
@@ -64,82 +112,65 @@ func NewIPAllocator(
 		prefix6: prefix6,
 
 		strategy: strategy,
+
+		tailnets: make(map[uint]*perTailnetState),
 	}
 
-	var (
-		v4s []sql.NullString
-		v6s []sql.NullString
-	)
+	// Each node carries its tailnet_id alongside its addresses so the used-IP
+	// set can be built per Tailnet (ADR-0002).
+	var rows []struct {
+		TailnetID uint
+		IPv4      sql.NullString
+		IPv6      sql.NullString
+	}
 
 	if db != nil {
 		err := db.Read(func(rx *gorm.DB) error {
-			return rx.Model(&types.Node{}).Pluck("ipv4", &v4s).Error
+			return rx.Model(&types.Node{}).Select("tailnet_id", "ipv4", "ipv6").Scan(&rows).Error
 		})
 		if err != nil {
-			return nil, fmt.Errorf("reading IPv4 addresses from database: %w", err)
+			return nil, fmt.Errorf("reading node addresses from database: %w", err)
 		}
-
-		err = db.Read(func(rx *gorm.DB) error {
-			return rx.Model(&types.Node{}).Pluck("ipv6", &v6s).Error
-		})
-		if err != nil {
-			return nil, fmt.Errorf("reading IPv6 addresses from database: %w", err)
-		}
-	}
-
-	var ips netipx.IPSetBuilder
-
-	// Add network and broadcast addrs to used pool so they
-	// are not handed out to nodes.
-	if prefix4 != nil {
-		network4, broadcast4 := util.GetIPPrefixEndpoints(*prefix4)
-		ips.Add(network4)
-		ips.Add(broadcast4)
-
-		// Use network as starting point, it will be used to call .Next()
-		// TODO(kradalby): Could potentially take all the IPs loaded from
-		// the database into account to start at a more "educated" location.
-		ret.prev4 = network4
-	}
-
-	if prefix6 != nil {
-		network6, broadcast6 := util.GetIPPrefixEndpoints(*prefix6)
-		ips.Add(network6)
-		ips.Add(broadcast6)
-
-		ret.prev6 = network6
 	}
 
 	// Fetch all the IP Addresses currently handed out from the Database
-	// and add them to the used IP set.
-	for _, addrStr := range append(v4s, v6s...) {
-		if addrStr.Valid {
-			addr, err := netip.ParseAddr(addrStr.String)
-			if err != nil {
-				return nil, fmt.Errorf("parsing IP address from database: %w", err)
-			}
+	// and add them to the used IP set of their owning Tailnet.
+	for _, row := range rows {
+		s := ret.stateFor(row.TailnetID)
 
-			ips.Add(addr)
+		for _, addrStr := range []sql.NullString{row.IPv4, row.IPv6} {
+			if addrStr.Valid {
+				addr, err := netip.ParseAddr(addrStr.String)
+				if err != nil {
+					return nil, fmt.Errorf("parsing IP address from database: %w", err)
+				}
+
+				s.usedIPs.Add(addr)
+			}
 		}
 	}
 
-	// Build the initial IPSet to validate that we can use it.
-	_, err := ips.IPSet()
-	if err != nil {
-		return nil, fmt.Errorf(
-			"building initial IP Set: %w",
-			err,
-		)
+	// Build the initial IPSet for every Tailnet seen to validate we can use it.
+	for tailnetID, s := range ret.tailnets {
+		if _, err := s.usedIPs.IPSet(); err != nil {
+			return nil, fmt.Errorf(
+				"building initial IP Set for tailnet(%d): %w",
+				tailnetID,
+				err,
+			)
+		}
 	}
-
-	ret.usedIPs = ips
 
 	return &ret, nil
 }
 
-func (i *IPAllocator) Next() (*netip.Addr, *netip.Addr, error) {
+// Next allocates the next free IPv4/IPv6 pair within the given Tailnet. Two
+// nodes in different Tailnets may receive the same address (ADR-0002).
+func (i *IPAllocator) Next(tailnetID uint) (*netip.Addr, *netip.Addr, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
+
+	s := i.stateFor(tailnetID)
 
 	var (
 		err  error
@@ -148,21 +179,21 @@ func (i *IPAllocator) Next() (*netip.Addr, *netip.Addr, error) {
 	)
 
 	if i.prefix4 != nil {
-		ret4, err = i.next(i.prev4, i.prefix4)
+		ret4, err = i.next(s, s.prev4, i.prefix4)
 		if err != nil {
 			return nil, nil, fmt.Errorf("allocating IPv4 address: %w", err)
 		}
 
-		i.prev4 = *ret4
+		s.prev4 = *ret4
 	}
 
 	if i.prefix6 != nil {
-		ret6, err = i.next(i.prev6, i.prefix6)
+		ret6, err = i.next(s, s.prev6, i.prefix6)
 		if err != nil {
 			return nil, nil, fmt.Errorf("allocating IPv6 address: %w", err)
 		}
 
-		i.prev6 = *ret6
+		s.prev6 = *ret6
 	}
 
 	return ret4, ret6, nil
@@ -170,39 +201,44 @@ func (i *IPAllocator) Next() (*netip.Addr, *netip.Addr, error) {
 
 var ErrCouldNotAllocateIP = errors.New("failed to allocate IP")
 
-// allocateNext4 allocates the next IPv4 under i.mu, advancing prev4 so a run of
-// allocations (e.g. BackfillNodeIPs) does not rescan already-issued addresses,
-// and so prev4 is read under the lock rather than in the caller's frame.
-func (i *IPAllocator) allocateNext4() (*netip.Addr, error) {
+// allocateNext4 allocates the next IPv4 within tailnetID under i.mu, advancing
+// that Tailnet's prev4 so a run of allocations (e.g. BackfillNodeIPs) does not
+// rescan already-issued addresses, and so prev4 is read under the lock rather
+// than in the caller's frame.
+func (i *IPAllocator) allocateNext4(tailnetID uint) (*netip.Addr, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
-	ret, err := i.next(i.prev4, i.prefix4)
+	s := i.stateFor(tailnetID)
+
+	ret, err := i.next(s, s.prev4, i.prefix4)
 	if err != nil {
 		return nil, err
 	}
 
-	i.prev4 = *ret
+	s.prev4 = *ret
 
 	return ret, nil
 }
 
 // allocateNext6 mirrors allocateNext4 for the IPv6 prefix.
-func (i *IPAllocator) allocateNext6() (*netip.Addr, error) {
+func (i *IPAllocator) allocateNext6(tailnetID uint) (*netip.Addr, error) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
-	ret, err := i.next(i.prev6, i.prefix6)
+	s := i.stateFor(tailnetID)
+
+	ret, err := i.next(s, s.prev6, i.prefix6)
 	if err != nil {
 		return nil, err
 	}
 
-	i.prev6 = *ret
+	s.prev6 = *ret
 
 	return ret, nil
 }
 
-func (i *IPAllocator) next(prev netip.Addr, prefix *netip.Prefix) (*netip.Addr, error) {
+func (i *IPAllocator) next(s *perTailnetState, prev netip.Addr, prefix *netip.Prefix) (*netip.Addr, error) {
 	var (
 		err error
 		ip  netip.Addr
@@ -220,7 +256,7 @@ func (i *IPAllocator) next(prev netip.Addr, prefix *netip.Prefix) (*netip.Addr, 
 	}
 
 	// TODO(kradalby): maybe this can be done less often.
-	set, err := i.usedIPs.IPSet()
+	set, err := s.usedIPs.IPSet()
 	if err != nil {
 		return nil, err
 	}
@@ -233,7 +269,7 @@ func (i *IPAllocator) next(prev netip.Addr, prefix *netip.Prefix) (*netip.Addr, 
 	start := ip
 	for {
 		if prefix.Contains(ip) && !set.Contains(ip) && !isTailscaleReservedIP(ip) {
-			i.usedIPs.Add(ip)
+			s.usedIPs.Add(ip)
 
 			return &ip, nil
 		}
@@ -348,7 +384,7 @@ func (db *HSDatabase) BackfillNodeIPs(i *IPAllocator) ([]string, error) {
 			changed := false
 			// IPv4 prefix is set, but node ip is missing, alloc
 			if i.prefix4 != nil && node.IPv4 == nil {
-				ret4, err := i.allocateNext4()
+				ret4, err := i.allocateNext4(node.TailnetID)
 				if err != nil {
 					return fmt.Errorf("allocating IPv4 for node(%d): %w", node.ID, err)
 				}
@@ -361,7 +397,7 @@ func (db *HSDatabase) BackfillNodeIPs(i *IPAllocator) ([]string, error) {
 
 			// IPv6 prefix is set, but node ip is missing, alloc
 			if i.prefix6 != nil && node.IPv6 == nil {
-				ret6, err := i.allocateNext6()
+				ret6, err := i.allocateNext6(node.TailnetID)
 				if err != nil {
 					return fmt.Errorf("allocating IPv6 for node(%d): %w", node.ID, err)
 				}
@@ -403,11 +439,15 @@ func (db *HSDatabase) BackfillNodeIPs(i *IPAllocator) ([]string, error) {
 	return ret, err
 }
 
-func (i *IPAllocator) FreeIPs(ips []netip.Addr) {
+// FreeIPs releases the given addresses back into the pool of the given
+// Tailnet. A freed address only frees it within its own Tailnet (ADR-0002).
+func (i *IPAllocator) FreeIPs(tailnetID uint, ips []netip.Addr) {
 	i.mu.Lock()
 	defer i.mu.Unlock()
 
+	s := i.stateFor(tailnetID)
+
 	for _, ip := range ips {
-		i.usedIPs.Remove(ip)
+		s.usedIPs.Remove(ip)
 	}
 }
