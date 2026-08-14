@@ -78,7 +78,15 @@ fmt-proto: check-deps $(PROTO_SOURCES)
 
 # Linting targets
 .PHONY: lint
-lint: lint-go lint-proto
+lint: lint-go lint-proto tenantcheck
+
+# Tenant-scoping CI guard (P0-2 step 7, CONTEXT decision 2 / ADR-0007).
+# Fails the build on raw SQL / joins that bypass tenant auto-scoping on
+# tenant-scoped tables. See tools/tenantcheck.
+.PHONY: tenantcheck
+tenantcheck: $(GO_SOURCES) go.mod go.sum
+	@echo "Running tenant-scoping guard..."
+	go run ./tools/tenantcheck/cmd/tenantcheck ./...
 
 .PHONY: lint-go
 lint-go: check-deps $(GO_SOURCES) go.mod go.sum
@@ -132,6 +140,7 @@ help:
 	@echo "  fmt-proto    - Format Protocol Buffer files only"
 	@echo "  lint-go      - Lint Go code only"
 	@echo "  lint-proto   - Lint Protocol Buffer files only"
+	@echo "  tenantcheck  - Run the tenant-scoping CI guard only"
 	@echo ""
 	@echo "Dependencies:"
 	@echo "  check-deps   - Verify required tools are available"
