@@ -397,6 +397,15 @@ func (s *State) ReloadPolicy() ([]change.Change, error) {
 // CreateUser creates a new user and updates the policy manager.
 // Returns the created user, change set, and any error.
 func (s *State) CreateUser(user types.User) (*types.User, change.Change, error) {
+	// Tenant resolution point (CONTEXT decision 4): a User belongs to exactly
+	// one Org. At N=1 self-host that is the default Org (ADR-0003); later this
+	// is derived from the authenticated identity's trusted tenant_id claim.
+	// Stamp explicitly rather than relying on the column default so an
+	// unset (zero) tenant_id can never silently persist.
+	if user.TenantID == 0 {
+		user.TenantID = types.DefaultTenantID
+	}
+
 	if err := s.db.DB.Save(&user).Error; err != nil { //nolint:noinlineerr
 		return nil, change.Change{}, fmt.Errorf("creating user: %w", err)
 	}

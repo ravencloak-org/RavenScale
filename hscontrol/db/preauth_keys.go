@@ -129,7 +129,19 @@ func CreatePreAuthKey(
 		return nil, err
 	}
 
+	// Tenant/Tailnet resolution point (CONTEXT decision 4): a pre-auth key is
+	// scoped to one Org and encodes its Tailnet. A user-owned key inherits its
+	// user's Org; tagged/system keys fall back to the default Org. Tailnet is
+	// the default at N=1 (ADR-0003); later derived per the multi-Tailnet key.
+	// Stamp explicitly so a zero tenant_id can never silently persist.
+	tenantID := types.DefaultTenantID
+	if user != nil && user.TenantID != 0 {
+		tenantID = user.TenantID
+	}
+
 	key := types.PreAuthKey{
+		TenantID:   tenantID,
+		TailnetID:  types.DefaultTailnetID,
 		UserID:     userID, // nil for system-created keys, or "created by" for tagged keys
 		User:       user,   // nil for system-created keys
 		Reusable:   reusable,
