@@ -1,0 +1,49 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "57fd9b9876b5",
+  "session_id": "a3748748-7a69-4fca-ab09-8d4c5893c798",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-14T12:05:41.396138Z",
+  "branch": "main",
+  "checkpoints_count": 0,
+  "files_touched": [
+    ".claude/worktrees/agent-ac817b90502e53c08/hscontrol/state/state.go",
+    "AGENTS.md",
+    "docs/adr/0006-maintained-fork-not-hard-fork.md",
+    "docs/adr/0007-tenant-scoping-auto-scoping-gorm-session.md",
+    "docs/adr/0008-n1-self-host-is-a-seed-not-a-backfill.md",
+    "docs/adr/0009-machinekey-globally-unique-phase-1.md",
+    "hscontrol/db/db.go",
+    "hscontrol/db/db_test.go",
+    "hscontrol/db/ip_test.go",
+    "hscontrol/db/preauth_keys.go",
+    "hscontrol/db/schema.sql",
+    "hscontrol/db/tenant_scope.go",
+    "hscontrol/db/tenant_scope_prototype.html",
+    "hscontrol/db/tenant_scope_test.go",
+    "hscontrol/db/zz_dumpschema_test.go",
+    "hscontrol/state/state.go",
+    "hscontrol/types/node.go",
+    "hscontrol/types/policy.go",
+    "hscontrol/types/preauth_key.go",
+    "hscontrol/types/tenant.go",
+    "hscontrol/types/users.go"
+  ],
+  "agent": "Claude Code",
+  "token_usage": {
+    "input_tokens": 147267,
+    "cache_creation_tokens": 1926069,
+    "cache_read_tokens": 34157237,
+    "output_tokens": 325088,
+    "api_call_count": 257
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-14T12:05:41.207595Z",
+    "agent_lines": 45,
+    "human_added": 115,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 160,
+    "agent_percentage": 28.125
+  }
+}
