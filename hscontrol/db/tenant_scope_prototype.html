@@ -1,0 +1,282 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PROTOTYPE — Tenant Scoping (ADR-0007)</title>
+<style>
+  :root { --bg:#0f1115; --panel:#1a1d24; --line:#2a2f3a; --fg:#e6e9ef; --muted:#8b93a3;
+          --ok:#3fb950; --bad:#f85149; --warn:#d29922; --accent:#58a6ff; --t1:#1f6feb; --t2:#a371f7; }
+  * { box-sizing:border-box; }
+  body { margin:0; font:14px/1.5 ui-sans-serif,system-ui,-apple-system,sans-serif; background:var(--bg); color:var(--fg); }
+  header { padding:16px 20px; border-bottom:1px solid var(--line); }
+  header h1 { margin:0; font-size:16px; }
+  header .warn { color:var(--warn); font-size:12px; margin-top:4px; }
+  header code { color:var(--accent); }
+  .wrap { display:grid; grid-template-columns:minmax(0,1fr) 380px; gap:0; min-height:calc(100vh - 70px); }
+  @media (max-width:880px){ .wrap{ grid-template-columns:1fr; } }
+  .left { padding:20px; }
+  .right { border-left:1px solid var(--line); padding:20px; background:var(--panel); }
+  @media (max-width:880px){ .right{ border-left:0; border-top:1px solid var(--line); } }
+  h2 { font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted); margin:0 0 8px; }
+  .ctx { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:6px; }
+  button { font:inherit; background:#20242d; color:var(--fg); border:1px solid var(--line); border-radius:6px;
+           padding:7px 11px; cursor:pointer; }
+  button:hover { border-color:var(--accent); }
+  button.active { background:var(--accent); color:#0b0d10; border-color:var(--accent); font-weight:600; }
+  button.op { background:#20242d; }
+  button.danger:hover { border-color:var(--bad); }
+  .row-ops { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 4px; }
+  .curctx { font-family:ui-monospace,monospace; font-size:12px; margin:10px 0; padding:8px 10px;
+            background:#12151b; border:1px solid var(--line); border-radius:6px; }
+  .curctx b { color:var(--accent); }
+  table { border-collapse:collapse; width:100%; margin-top:6px; font-family:ui-monospace,monospace; font-size:12px; }
+  th,td { text-align:left; padding:5px 8px; border-bottom:1px solid var(--line); }
+  th { color:var(--muted); font-weight:500; }
+  tr.hidden { opacity:.28; }
+  tr.hidden td:first-child::after { content:" 🚫"; }
+  .badge { display:inline-block; padding:1px 6px; border-radius:4px; font-size:11px; font-weight:600; }
+  .t1 { background:var(--t1); color:#fff; } .t2 { background:var(--t2); color:#fff; }
+  .log { font-family:ui-monospace,monospace; font-size:12px; }
+  .log .entry { padding:7px 9px; border-bottom:1px solid var(--line); }
+  .log .q { color:var(--muted); }
+  .log .ok { color:var(--ok); } .log .bad { color:var(--bad); } .log .warn { color:var(--warn); }
+  .tabs { display:flex; gap:4px; flex-wrap:wrap; margin:18px 0 10px; }
+  .tabs button { font-size:12px; }
+  .story { background:#12151b; border:1px solid var(--line); border-radius:8px; padding:14px; }
+  .story h3 { margin:0 0 6px; font-size:14px; }
+  .story p { margin:0 0 12px; color:var(--muted); }
+  .story .steps { display:flex; gap:8px; flex-wrap:wrap; }
+  .legend { font-size:11px; color:var(--muted); margin-top:6px; }
+  .clearbtn { float:right; font-size:11px; padding:3px 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🧪 PROTOTYPE — Tenant Scoping state machine (RavenScale ADR-0007)</h1>
+  <div class="warn">Throwaway. In-memory JS mirror of the planned GORM <code>BeforeQuery/Update/Delete</code> auto-scoping callback. Not production code. Answers: <em>does the fail-closed scoped-session model feel right?</em></div>
+</header>
+
+<div class="wrap">
+  <div class="left">
+    <h2>1 · Request context (who is asking)</h2>
+    <div class="ctx" id="ctxbtns">
+      <button data-ctx="1" class="active">TenantDB(ctx: tenant=1)</button>
+      <button data-ctx="2">TenantDB(ctx: tenant=2)</button>
+      <button data-ctx="none">ctx with NO tenant</button>
+      <button data-ctx="all">WithAllTenants(ctx)</button>
+    </div>
+    <div class="curctx" id="curctx"></div>
+    <div class="legend">A real request context carries the tenant id resolved from the auth/session layer. <code>WithAllTenants</code> = explicit admin escape hatch.</div>
+
+    <h2 style="margin-top:20px">2 · Operations (routed through the scoped session)</h2>
+    <div class="row-ops">
+      <button class="op" data-op="query">Query() all users</button>
+      <button class="op" data-op="create">Create(user "Dave")</button>
+    </div>
+    <div class="row-ops">
+      <button class="op danger" data-op="update-foreign">Update(id=3 → rename) <span style="color:var(--muted)">(row owned by tenant 2)</span></button>
+      <button class="op danger" data-op="delete-foreign">Delete(id=3) <span style="color:var(--muted)">(tenant 2's row)</span></button>
+    </div>
+    <div class="row-ops">
+      <button class="op danger" data-op="raw">Raw SQL: SELECT * FROM users <span style="color:var(--muted)">(BYPASSES callback)</span></button>
+      <button class="op" data-op="seed">↺ reseed</button>
+    </div>
+
+    <h2 style="margin-top:20px">3 · Actual table (ground truth) — rows <span style="color:var(--muted)">dimmed = invisible under current ctx</span></h2>
+    <table id="rows"><thead><tr><th>id</th><th>tenant_id</th><th>name</th></tr></thead><tbody></tbody></table>
+
+    <div class="tabs" id="storytabs">
+      <button data-story="scoped">▶ Walkthrough: scoped read</button>
+      <button data-story="failclosed">▶ Fail-closed</button>
+      <button data-story="foreign">▶ Cross-tenant write</button>
+      <button data-story="escape">▶ Escape hatch</button>
+      <button data-story="bypass">▶ The bypass gap</button>
+    </div>
+    <div class="story" id="story"></div>
+  </div>
+
+  <div class="right">
+    <h2>Operation log <button class="clearbtn" id="clear">clear</button></h2>
+    <div class="log" id="log"></div>
+  </div>
+</div>
+
+<script>
+// ---- in-memory ground truth ----
+const seed = () => ([
+  { id:1, tenant_id:1, name:"Alice" },
+  { id:2, tenant_id:1, name:"Bob" },
+  { id:3, tenant_id:2, name:"Carol" },
+  { id:4, tenant_id:2, name:"Erin" },
+]);
+let rows = seed();
+let nextId = 5;
+
+// ---- request context ----
+let ctx = { tenant:1, all:false }; // {tenant:number|null, all:bool}
+
+// ---- the callback logic under test (mirror of planned Go behavior) ----
+// resolveScope is the single decision point every op goes through.
+function resolveScope() {
+  if (ctx.all) return { mode:"all" };
+  if (ctx.tenant == null) return { mode:"fail" };   // fail-CLOSED: no tenant => refuse, never fall back to unscoped
+  return { mode:"scoped", tenant:ctx.tenant };
+}
+
+// Each op returns {ok, msg, cls}
+const DB = {
+  query() {
+    const s = resolveScope();
+    if (s.mode==="fail") return fail("Query", "no tenant in context → REFUSED (fail-closed). Never returns all rows.");
+    if (s.mode==="all")  return ok("Query", `WithAllTenants → returned ALL ${rows.length} rows (admin path).`);
+    const got = rows.filter(r=>r.tenant_id===s.tenant);
+    return ok("Query", `WHERE tenant_id=${s.tenant} → ${got.length} rows: [${got.map(r=>r.name).join(", ")}].`);
+  },
+  create() {
+    const s = resolveScope();
+    if (s.mode==="fail") return fail("Create", "no tenant in context → REFUSED. Cannot stamp tenant_id.");
+    if (s.mode==="all")  return fail("Create", "WithAllTenants + Create is ambiguous (which tenant?) → REFUSED. Admin must pick a tenant explicitly.");
+    rows.push({ id:nextId++, tenant_id:s.tenant, name:"Dave" });
+    return ok("Create", `INSERT stamped tenant_id=${s.tenant} (Dave). Callback set the column — caller never passes it.`, "ok");
+  },
+  updateForeign() {
+    const s = resolveScope();
+    if (s.mode==="fail") return fail("Update", "no tenant in context → REFUSED.");
+    const target = rows.find(r=>r.id===3);
+    if (!target) return warn("Update", "id=3 no longer exists (reseed).");
+    if (s.mode==="all") { target.name="RENAMED"; return warn("Update", "WithAllTenants → updated id=3 across tenant boundary (admin power, as designed)."); }
+    // scoped update: WHERE id=3 AND tenant_id=ctx
+    if (target.tenant_id!==s.tenant) return ok("Update", `WHERE id=3 AND tenant_id=${s.tenant} → 0 rows affected. Tenant ${s.tenant} cannot touch tenant ${target.tenant_id}'s row.`, "ok");
+    target.name="RENAMED";
+    return ok("Update", "renamed id=3 (own row).");
+  },
+  deleteForeign() {
+    const s = resolveScope();
+    if (s.mode==="fail") return fail("Delete", "no tenant in context → REFUSED.");
+    const target = rows.find(r=>r.id===3);
+    if (!target) return warn("Delete", "id=3 already gone.");
+    if (s.mode==="all") { rows=rows.filter(r=>r.id!==3); return warn("Delete", "WithAllTenants → deleted id=3 across boundary (admin)."); }
+    if (target.tenant_id!==s.tenant) return ok("Delete", `WHERE id=3 AND tenant_id=${s.tenant} → 0 rows affected. Cross-tenant delete blocked.`, "ok");
+    rows=rows.filter(r=>r.id!==3);
+    return ok("Delete", "deleted own id=3.");
+  },
+  raw() {
+    // Raw SQL does NOT pass through GORM model callbacks → NO scoping injected.
+    return warn("RawSQL", `LEAK: raw query bypasses the callback entirely → sees ALL ${rows.length} rows regardless of ctx (${ctx.all?"all":ctx.tenant==null?"none":"tenant="+ctx.tenant}). This is why Step 7 CI guard must ban raw SQL / cross-model joins.`);
+  },
+};
+
+// ---- log helpers ----
+function ok(op,msg,cls){ return {op,msg,cls:cls||"ok"}; }
+function fail(op,msg){ return {op,msg,cls:"bad"}; }
+function warn(op,msg){ return {op,msg,cls:"warn"}; }
+
+// ---- rendering ----
+const $ = s=>document.querySelector(s);
+function visibleSet() {
+  const s = resolveScope();
+  if (s.mode==="all") return new Set(rows.map(r=>r.id));
+  if (s.mode==="fail") return new Set();            // fail-closed → nothing visible
+  return new Set(rows.filter(r=>r.tenant_id===s.tenant).map(r=>r.id));
+}
+function renderRows() {
+  const vis = visibleSet();
+  $("#rows tbody").innerHTML = rows.map(r=>
+    `<tr class="${vis.has(r.id)?"":"hidden"}"><td>${r.id}</td>`+
+    `<td><span class="badge t${r.tenant_id}">tenant ${r.tenant_id}</span></td><td>${r.name}</td></tr>`
+  ).join("");
+}
+function renderCtx() {
+  const t = ctx.all ? '<b>WithAllTenants</b> — scoping OFF (admin)' :
+            ctx.tenant==null ? '<b>tenant = ∅</b> — fail-closed: every op REFUSED' :
+            `<b>tenant = ${ctx.tenant}</b> — every op auto-scoped to tenant_id=${ctx.tenant}`;
+  $("#curctx").innerHTML = "ctx → " + t;
+}
+function logResult(r) {
+  const el = document.createElement("div");
+  el.className = "entry";
+  el.innerHTML = `<span class="q">${r.op} · ctx=${ctx.all?"all":ctx.tenant==null?"none":"t"+ctx.tenant}</span><br><span class="${r.cls}">${r.msg}</span>`;
+  $("#log").prepend(el);
+}
+function render(){ renderCtx(); renderRows(); }
+
+// ---- wire context buttons ----
+$("#ctxbtns").addEventListener("click", e=>{
+  const b = e.target.closest("button"); if(!b) return;
+  [...$("#ctxbtns").children].forEach(x=>x.classList.remove("active"));
+  b.classList.add("active");
+  const v = b.dataset.ctx;
+  ctx = v==="all" ? {tenant:null,all:true} : v==="none" ? {tenant:null,all:false} : {tenant:+v,all:false};
+  render();
+});
+
+// ---- wire op buttons ----
+document.querySelector(".left").addEventListener("click", e=>{
+  const b = e.target.closest("button.op"); if(!b) return;
+  const map = { query:"query", create:"create", "update-foreign":"updateForeign",
+                "delete-foreign":"deleteForeign", raw:"raw" };
+  if (b.dataset.op==="seed"){ rows=seed(); nextId=5; render(); logResult(warn("seed","table reset to 4 rows.")); return; }
+  logResult(DB[map[b.dataset.op]]());
+  render();
+});
+
+$("#clear").addEventListener("click", ()=>{ $("#log").innerHTML=""; });
+
+// ---- guided walkthroughs ----
+const stories = {
+  scoped: { title:"Scoped read — tenant only sees its own",
+    body:"Set ctx=tenant 1 and query. The callback appends WHERE tenant_id=1. Carol/Erin (tenant 2) never appear — no filter in the caller, the session enforces it.",
+    steps:[["ctx1"],["query"]] },
+  failclosed: { title:"Fail-closed — the whole point",
+    body:"A bug drops the tenant from context. A fail-OPEN system would return every tenant's rows. This model REFUSES. No tenant → no data, never a silent full-table read.",
+    steps:[["none"],["query"],["create"]] },
+  foreign: { title:"Cross-tenant write is a no-op, not an error",
+    body:"As tenant 1, try to update/delete id=3 (Carol, tenant 2). The scope clause makes it WHERE id=3 AND tenant_id=1 → 0 rows affected. Tenant 1 cannot even tell row 3 exists.",
+    steps:[["ctx1"],["update-foreign"],["delete-foreign"]] },
+  escape: { title:"Escape hatch — WithAllTenants",
+    body:"Admin/migration paths opt out explicitly. Query sees all 4 rows; a cross-tenant update goes through. Power is deliberate and greppable, not the default.",
+    steps:[["all"],["query"],["update-foreign"]] },
+  bypass: { title:"The bypass gap → why Step 7 CI guard exists",
+    body:"Callbacks only fire on GORM model ops. A raw SQL string or a hand-rolled join skips them → full leak, regardless of ctx. The model can't close this; static analysis (Step 7) must ban raw SQL + cross-model joins.",
+    steps:[["ctx1"],["raw"]] },
+};
+const stepBtn = {
+  ctx1:["set ctx=tenant 1", ()=>clickCtx("1")],
+  all:["set WithAllTenants", ()=>clickCtx("all")],
+  none:["drop tenant", ()=>clickCtx("none")],
+  query:["Query()", ()=>runOp("query")],
+  create:["Create()", ()=>runOp("create")],
+  "update-foreign":["Update foreign", ()=>runOp("update-foreign")],
+  "delete-foreign":["Delete foreign", ()=>runOp("delete-foreign")],
+  raw:["Raw SQL", ()=>runOp("raw")],
+};
+function clickCtx(v){ [...$("#ctxbtns").children].find(b=>b.dataset.ctx===v).click(); }
+function runOp(op){ [...document.querySelectorAll("button.op")].find(b=>b.dataset.op===op).click(); }
+function renderStory(key){
+  const s = stories[key];
+  $("#story").innerHTML = `<h3>${s.title}</h3><p>${s.body}</p><div class="steps"></div>`;
+  const box = $("#story .steps");
+  s.steps.forEach(([code])=>{
+    const [label,fn] = stepBtn[code];
+    const btn = document.createElement("button");
+    btn.textContent = label; btn.onclick = fn; box.appendChild(btn);
+  });
+  const all = document.createElement("button");
+  all.textContent = "▶▶ run all steps"; all.className="active";
+  all.onclick = async ()=>{ for(const [c] of s.steps){ stepBtn[c][1](); await new Promise(r=>setTimeout(r,450)); } };
+  box.appendChild(all);
+}
+$("#storytabs").addEventListener("click", e=>{
+  const b=e.target.closest("button"); if(!b) return;
+  [...$("#storytabs").children].forEach(x=>x.classList.remove("active"));
+  b.classList.add("active");
+  renderStory(b.dataset.story);
+});
+
+render();
+renderStory("scoped");
+$("#storytabs").children[0].classList.add("active");
+</script>
+</body>
+</html>
