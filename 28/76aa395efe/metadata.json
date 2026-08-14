@@ -1,0 +1,34 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "2876aa395efe",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "hscontrol/db/db.go",
+    "hscontrol/db/ip_test.go",
+    "hscontrol/db/schema.sql",
+    "hscontrol/db/zz_dumpschema_test.go",
+    "hscontrol/types/node.go",
+    "hscontrol/types/policy.go",
+    "hscontrol/types/preauth_key.go",
+    "hscontrol/types/tenant.go",
+    "hscontrol/types/users.go"
+  ],
+  "sessions": [
+    {
+      "metadata": "/28/76aa395efe/0/metadata.json",
+      "transcript": "/28/76aa395efe/0/full.jsonl",
+      "context": "/28/76aa395efe/0/context.md",
+      "content_hash": "/28/76aa395efe/0/content_hash.txt",
+      "prompt": "/28/76aa395efe/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 34603,
+    "cache_creation_tokens": 837037,
+    "cache_read_tokens": 15199942,
+    "output_tokens": 80019,
+    "api_call_count": 83
+  }
+}
