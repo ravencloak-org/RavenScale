@@ -610,7 +610,7 @@ func (s *State) DeleteNode(node types.NodeView) (change.Change, error) {
 		return change.Change{}, err
 	}
 
-	s.ipAlloc.FreeIPs(node.IPs())
+	s.ipAlloc.FreeIPs(node.TailnetID(), node.IPs())
 
 	c := change.NodeRemoved(node.ID())
 
@@ -1831,6 +1831,12 @@ func (s *State) createAndSaveNewNode(params newNodeParams) (types.NodeView, erro
 		IsOnline:       new(false), // Explicitly offline until [State.Connect] is called
 		RegisterMethod: params.RegisterMethod,
 		Expiry:         params.Expiry,
+		// N=1 self-host: every node lives in the default Tailnet (ADR-0003).
+		// Later phases derive this from the tenant-scoped pre-auth key. IP
+		// allocation is scoped by this id (ADR-0002), so it must be set before
+		// s.ipAlloc.Next below rather than left to the column default.
+		TenantID:  types.DefaultTenantID,
+		TailnetID: types.DefaultTailnetID,
 	}
 
 	// Assign ownership based on PreAuthKey
@@ -1912,8 +1918,8 @@ func (s *State) createAndSaveNewNode(params newNodeParams) (types.NodeView, erro
 		return types.NodeView{}, err
 	}
 
-	// Allocate new IPs
-	ipv4, ipv6, err := s.ipAlloc.Next()
+	// Allocate new IPs within the node's Tailnet (ADR-0002).
+	ipv4, ipv6, err := s.ipAlloc.Next(nodeToRegister.TailnetID)
 	if err != nil {
 		return types.NodeView{}, fmt.Errorf("allocating IPs: %w", err)
 	}

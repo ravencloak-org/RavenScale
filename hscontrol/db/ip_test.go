@@ -161,7 +161,7 @@ func TestIPAllocatorSequential(t *testing.T) {
 			)
 
 			for range tt.getCount {
-				got4, got6, err := alloc.Next()
+				got4, got6, err := alloc.Next(types.DefaultTailnetID)
 				if err != nil {
 					t.Fatalf("allocating next IP: %s", err)
 				}
@@ -261,7 +261,7 @@ func TestIPAllocatorRandom(t *testing.T) {
 			alloc, _ := NewIPAllocator(db, tt.prefix4, tt.prefix6, types.IPAllocationStrategyRandom)
 
 			for range tt.getCount {
-				got4, got6, err := alloc.Next()
+				got4, got6, err := alloc.Next(types.DefaultTailnetID)
 				if err != nil {
 					t.Fatalf("allocating next IP: %s", err)
 				}
@@ -500,19 +500,74 @@ func TestIPAllocatorNextNoReservedIPs(t *testing.T) {
 		t.Fatalf("failed to set up ip alloc: %s", err)
 	}
 
+	s := alloc.stateFor(types.DefaultTailnetID)
+
 	// Validate that we do not give out 100.100.100.100
-	nextQuad100, err := alloc.next(na("100.100.100.99"), new(tsaddr.CGNATRange()))
+	nextQuad100, err := alloc.next(s, na("100.100.100.99"), new(tsaddr.CGNATRange()))
 	require.NoError(t, err)
 	assert.Equal(t, na("100.100.100.101"), *nextQuad100)
 
 	// Validate that we do not give out fd7a:115c:a1e0::53
-	nextQuad100v6, err := alloc.next(na("fd7a:115c:a1e0::52"), new(tsaddr.TailscaleULARange()))
+	nextQuad100v6, err := alloc.next(s, na("fd7a:115c:a1e0::52"), new(tsaddr.TailscaleULARange()))
 	require.NoError(t, err)
 	assert.Equal(t, na("fd7a:115c:a1e0::54"), *nextQuad100v6)
 
 	// Validate that we do not give out fd7a:115c:a1e0::53
-	nextChrome, err := alloc.next(na("100.115.91.255"), new(tsaddr.CGNATRange()))
+	nextChrome, err := alloc.next(s, na("100.115.91.255"), new(tsaddr.CGNATRange()))
 	t.Logf("chrome: %s", nextChrome.String())
 	require.NoError(t, err)
 	assert.Equal(t, na("100.115.94.0"), *nextChrome)
+}
+
+// TestIPAllocatorPerTailnet proves the core ADR-0002 property: allocation is
+// scoped per Tailnet. Two nodes in different Tailnets can be allocated the same
+// address, while allocation within a single Tailnet never repeats an address.
+func TestIPAllocatorPerTailnet(t *testing.T) {
+	const (
+		tailnetA uint = 1
+		tailnetB uint = 2
+		count         = 50
+	)
+
+	alloc, err := NewIPAllocator(
+		nil,
+		mpp("100.64.0.0/10"),
+		mpp("fd7a:115c:a1e0::/48"),
+		types.IPAllocationStrategySequential,
+	)
+	require.NoError(t, err)
+
+	seenA4 := make(map[netip.Addr]bool)
+	var seqA4, seqB4 []netip.Addr
+
+	// Allocate a run of addresses in Tailnet A, asserting no repeats within it.
+	for range count {
+		got4, _, err := alloc.Next(tailnetA)
+		require.NoError(t, err)
+		require.NotNil(t, got4)
+
+		if seenA4[*got4] {
+			t.Fatalf("address %s handed out twice within tailnet %d", got4, tailnetA)
+		}
+		seenA4[*got4] = true
+		seqA4 = append(seqA4, *got4)
+	}
+
+	// Allocate the same number in Tailnet B: it has its own independent pool,
+	// so it must reproduce the identical sequence Tailnet A got.
+	for range count {
+		got4, _, err := alloc.Next(tailnetB)
+		require.NoError(t, err)
+		require.NotNil(t, got4)
+		seqB4 = append(seqB4, *got4)
+	}
+
+	if diff := cmp.Diff(seqA4, seqB4, util.Comparers...); diff != "" {
+		t.Errorf("tailnet B did not get the same addresses as tailnet A (-A +B):\n%s", diff)
+	}
+
+	// The first address in each Tailnet is the same concrete address, held by
+	// two different nodes without either allocator treating it as a collision.
+	assert.Equal(t, na("100.64.0.1"), seqA4[0])
+	assert.Equal(t, seqA4[0], seqB4[0])
 }

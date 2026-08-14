@@ -27,7 +27,7 @@ func TestIPAllocatorRandomExhaustionReturnsError(t *testing.T) {
 	}
 
 	for i := range 2 {
-		_, _, err := alloc.Next()
+		_, _, err := alloc.Next(types.DefaultTailnetID)
 		if err != nil {
 			t.Fatalf("Next() #%d unexpectedly failed: %v", i+1, err)
 		}
@@ -36,7 +36,7 @@ func TestIPAllocatorRandomExhaustionReturnsError(t *testing.T) {
 	done := make(chan error, 1)
 
 	go func() {
-		_, _, err := alloc.Next()
+		_, _, err := alloc.Next(types.DefaultTailnetID)
 		done <- err
 	}()
 
