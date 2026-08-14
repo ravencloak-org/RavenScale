@@ -4,8 +4,36 @@
 
 CREATE TABLE migrations(id text,PRIMARY KEY(id));
 
+-- RavenScale multi-tenancy (ADR-0001): Tenant = Org (isolation boundary),
+-- owns 1..* Tailnets. Every tenant-scoped table carries a non-null tenant_id
+-- (the Org) and, where it lives in a network namespace, a tailnet_id.
+CREATE TABLE tenants(
+  id integer PRIMARY KEY AUTOINCREMENT,
+  name text,
+
+  created_at datetime,
+  updated_at datetime,
+  deleted_at datetime
+);
+CREATE INDEX `idx_tenants_deleted_at` ON `tenants`(`deleted_at`);
+
+CREATE TABLE tailnets(
+  id integer PRIMARY KEY AUTOINCREMENT,
+  tenant_id integer NOT NULL,
+  slug text,
+  name text,
+
+  created_at datetime,
+  updated_at datetime,
+  deleted_at datetime
+);
+CREATE INDEX `idx_tailnets_deleted_at` ON `tailnets`(`deleted_at`);
+CREATE INDEX `idx_tailnets_tenant_id` ON `tailnets`(`tenant_id`);
+CREATE UNIQUE INDEX `idx_tailnets_slug` ON `tailnets`(`slug`);
+
 CREATE TABLE users(
   id integer PRIMARY KEY AUTOINCREMENT,
+  tenant_id integer NOT NULL DEFAULT 1,
   name text,
   display_name text,
   email text,
@@ -18,6 +46,7 @@ CREATE TABLE users(
   deleted_at datetime
 );
 CREATE INDEX idx_users_deleted_at ON users(deleted_at);
+CREATE INDEX `idx_users_tenant_id` ON `users`(`tenant_id`);
 
 
 -- The following three UNIQUE indexes work together to enforce the user identity model:
@@ -40,6 +69,8 @@ CREATE UNIQUE INDEX idx_name_no_provider_identifier ON users(name) WHERE provide
 
 CREATE TABLE pre_auth_keys(
   id integer PRIMARY KEY AUTOINCREMENT,
+  tenant_id integer NOT NULL DEFAULT 1,
+  tailnet_id integer NOT NULL DEFAULT 1,
   key text,
   prefix text,
   hash blob,
@@ -55,6 +86,8 @@ CREATE TABLE pre_auth_keys(
   CONSTRAINT fk_pre_auth_keys_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE SET NULL
 );
 CREATE UNIQUE INDEX idx_pre_auth_keys_prefix ON pre_auth_keys(prefix) WHERE prefix IS NOT NULL AND prefix != '';
+CREATE INDEX `idx_pre_auth_keys_tenant_id` ON `pre_auth_keys`(`tenant_id`);
+CREATE INDEX `idx_pre_auth_keys_tailnet_id` ON `pre_auth_keys`(`tailnet_id`);
 
 CREATE TABLE api_keys(
   id integer PRIMARY KEY AUTOINCREMENT,
@@ -69,6 +102,8 @@ CREATE UNIQUE INDEX idx_api_keys_prefix ON api_keys(prefix);
 
 CREATE TABLE nodes(
   id integer PRIMARY KEY AUTOINCREMENT,
+  tenant_id integer NOT NULL DEFAULT 1,
+  tailnet_id integer NOT NULL DEFAULT 1,
   machine_key text,
   node_key text,
   disco_key text,
@@ -96,9 +131,13 @@ CREATE TABLE nodes(
   CONSTRAINT fk_nodes_user FOREIGN KEY(user_id) REFERENCES users(id) ON DELETE CASCADE,
   CONSTRAINT fk_nodes_auth_key FOREIGN KEY(auth_key_id) REFERENCES pre_auth_keys(id)
 );
+CREATE INDEX `idx_nodes_tenant_id` ON `nodes`(`tenant_id`);
+CREATE INDEX `idx_nodes_tailnet_id` ON `nodes`(`tailnet_id`);
 
 CREATE TABLE policies(
   id integer PRIMARY KEY AUTOINCREMENT,
+  tenant_id integer NOT NULL DEFAULT 1,
+  tailnet_id integer NOT NULL DEFAULT 1,
   data text,
 
   created_at datetime,
@@ -106,6 +145,8 @@ CREATE TABLE policies(
   deleted_at datetime
 );
 CREATE INDEX idx_policies_deleted_at ON policies(deleted_at);
+CREATE INDEX `idx_policies_tenant_id` ON `policies`(`tenant_id`);
+CREATE INDEX `idx_policies_tailnet_id` ON `policies`(`tailnet_id`);
 
 CREATE TABLE database_versions(
   id integer PRIMARY KEY,

@@ -91,6 +91,11 @@ func (v *UserView) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 func (v UserView) Model() gorm.Model { return v.ж.Model }
 
+// TenantID is the owning Org (ADR-0001). Never null; defaults to the N=1
+// tenant so existing/self-host rows are always scoped (ADR-0008). A User
+// belongs to exactly one Org.
+func (v UserView) TenantID() uint { return v.ж.TenantID }
+
 // Name (username) for the user, is used if email is empty
 // Should not be used, please use [User.Username].
 // It is unique if [User.ProviderIdentifier] is not set.
@@ -118,6 +123,7 @@ func (v UserView) ProfilePicURL() string { return v.ж.ProfilePicURL }
 // A compilation failure here means this code must be regenerated, with the command at the top of this file.
 var _UserViewNeedsRegeneration = User(struct {
 	gorm.Model
+	TenantID           uint
 	Name               string
 	DisplayName        string
 	Email              string
@@ -193,7 +199,12 @@ func (v *NodeView) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-func (v NodeView) ID() NodeID                             { return v.ж.ID }
+func (v NodeView) ID() NodeID { return v.ж.ID }
+
+// TenantID is the owning Org; TailnetID the network namespace the node lives
+// in (ADR-0001/0002). Both never null; default to the N=1 seed (ADR-0008).
+func (v NodeView) TenantID() uint                         { return v.ж.TenantID }
+func (v NodeView) TailnetID() uint                        { return v.ж.TailnetID }
 func (v NodeView) MachineKey() key.MachinePublic          { return v.ж.MachineKey }
 func (v NodeView) NodeKey() key.NodePublic                { return v.ж.NodeKey }
 func (v NodeView) DiscoKey() key.DiscoPublic              { return v.ж.DiscoKey }
@@ -283,6 +294,8 @@ func (v NodeView) String() string       { return v.ж.String() }
 // A compilation failure here means this code must be regenerated, with the command at the top of this file.
 var _NodeViewNeedsRegeneration = Node(struct {
 	ID             NodeID
+	TenantID       uint
+	TailnetID      uint
 	MachineKey     key.MachinePublic
 	NodeKey        key.NodePublic
 	DiscoKey       key.DiscoPublic
@@ -379,6 +392,12 @@ func (v *PreAuthKeyView) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 func (v PreAuthKeyView) ID() uint64 { return v.ж.ID }
 
+// TenantID/TailnetID: a pre-auth key encodes the Tailnet it registers nodes
+// into (ADR-0007 tenant-scoped keys). Both never null; default to the N=1
+// seed (ADR-0008).
+func (v PreAuthKeyView) TenantID() uint  { return v.ж.TenantID }
+func (v PreAuthKeyView) TailnetID() uint { return v.ж.TailnetID }
+
 // Legacy plaintext key (for backwards compatibility)
 func (v PreAuthKeyView) Key() string { return v.ж.Key }
 
@@ -413,6 +432,8 @@ func (v PreAuthKeyView) Expiration() views.ValuePointer[time.Time] {
 // A compilation failure here means this code must be regenerated, with the command at the top of this file.
 var _PreAuthKeyViewNeedsRegeneration = PreAuthKey(struct {
 	ID         uint64
+	TenantID   uint
+	TailnetID  uint
 	Key        string
 	Prefix     string
 	Hash       []byte

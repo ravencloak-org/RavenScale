@@ -66,6 +66,11 @@ func (u Users) String() string {
 type User struct {
 	gorm.Model //nolint:embeddedstructfieldcheck
 
+	// TenantID is the owning Org (ADR-0001). Never null; defaults to the N=1
+	// tenant so existing/self-host rows are always scoped (ADR-0008). A User
+	// belongs to exactly one Org.
+	TenantID uint `gorm:"not null;default:1;index"`
+
 	// The index `idx_name_provider_identifier` is to enforce uniqueness
 	// between Name and ProviderIdentifier. This ensures that
 	// you can have multiple users with the same name in OIDC,

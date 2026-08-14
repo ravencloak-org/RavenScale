@@ -18,6 +18,12 @@ func (e PAKError) Error() string { return string(e) }
 type PreAuthKey struct {
 	ID uint64 `gorm:"primary_key"`
 
+	// TenantID/TailnetID: a pre-auth key encodes the Tailnet it registers nodes
+	// into (ADR-0007 tenant-scoped keys). Both never null; default to the N=1
+	// seed (ADR-0008).
+	TenantID  uint `gorm:"not null;default:1;index"`
+	TailnetID uint `gorm:"not null;default:1;index"`
+
 	// Legacy plaintext key (for backwards compatibility)
 	Key string
 

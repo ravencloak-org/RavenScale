@@ -441,6 +441,8 @@ func TestBackfillIPAddresses(t *testing.T) {
 
 	comps := append(util.Comparers, cmpopts.IgnoreFields(types.Node{},
 		"ID",
+		"TenantID",
+		"TailnetID",
 		"User",
 		"UserID",
 		"Endpoints",

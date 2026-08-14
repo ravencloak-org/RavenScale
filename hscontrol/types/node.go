@@ -117,6 +117,11 @@ func MustParseNodeID(s string) NodeID {
 type Node struct {
 	ID NodeID `gorm:"primary_key"`
 
+	// TenantID is the owning Org; TailnetID the network namespace the node lives
+	// in (ADR-0001/0002). Both never null; default to the N=1 seed (ADR-0008).
+	TenantID  uint `gorm:"not null;default:1;index"`
+	TailnetID uint `gorm:"not null;default:1;index"`
+
 	MachineKey key.MachinePublic `gorm:"serializer:text"`
 	NodeKey    key.NodePublic    `gorm:"serializer:text"`
 	DiscoKey   key.DiscoPublic   `gorm:"serializer:text"`

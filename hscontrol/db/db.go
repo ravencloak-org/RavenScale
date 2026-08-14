@@ -808,12 +808,38 @@ WHERE tags IS NOT NULL AND tags != '[]' AND tags != '' AND tags != 'null'
 				},
 				Rollback: func(db *gorm.DB) error { return nil },
 			},
+			// --- RavenScale migrations: namespaced rs-* and pinned AFTER all
+			// upstream migrations so upstream merges stay ordered (ADR-0006/0008).
+			{
+				ID: "rs-0001-tenancy",
+				Migrate: func(tx *gorm.DB) error {
+					// Multi-tenant scaffold (ADR-0001). Create the tenant tables,
+					// seed the N=1 default Org+Tailnet (ADR-0008), then add the
+					// tenant_id/tailnet_id columns to existing tables — default 1
+					// backfills existing rows so nothing is left un-tenanted.
+					if err := tx.AutoMigrate(&types.Tenant{}, &types.Tailnet{}); err != nil {
+						return fmt.Errorf("creating tenant tables: %w", err)
+					}
+					if err := types.SeedDefaultTenant(tx); err != nil {
+						return fmt.Errorf("seeding default tenant: %w", err)
+					}
+					if err := tx.AutoMigrate(&types.User{}, &types.Node{}, &types.PreAuthKey{}, &types.Policy{}); err != nil {
+						return fmt.Errorf("adding tenant columns: %w", err)
+					}
+
+					return nil
+				},
+				// One-way (ADR-0008): no rollback.
+				Rollback: func(db *gorm.DB) error { return nil },
+			},
 		},
 	)
 
 	migrations.InitSchema(func(tx *gorm.DB) error {
 		// Create all tables using AutoMigrate
 		err := tx.AutoMigrate(
+			&types.Tenant{},
+			&types.Tailnet{},
 			&types.User{},
 			&types.PreAuthKey{},
 			&types.APIKey{},
@@ -821,6 +847,11 @@ WHERE tags IS NOT NULL AND tags != '[]' AND tags != '' AND tags != 'null'
 			&types.Policy{},
 		)
 		if err != nil {
+			return err
+		}
+
+		// Seed the N=1 default Org + Tailnet on fresh databases (ADR-0008).
+		if err := types.SeedDefaultTenant(tx); err != nil {
 			return err
 		}
 

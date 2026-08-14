@@ -29,6 +29,7 @@ func (src *User) Clone() *User {
 // A compilation failure here means this code must be regenerated, with the command at the top of this file.
 var _UserCloneNeedsRegeneration = User(struct {
 	gorm.Model
+	TenantID           uint
 	Name               string
 	DisplayName        string
 	Email              string
@@ -83,6 +84,8 @@ func (src *Node) Clone() *Node {
 // A compilation failure here means this code must be regenerated, with the command at the top of this file.
 var _NodeCloneNeedsRegeneration = Node(struct {
 	ID             NodeID
+	TenantID       uint
+	TailnetID      uint
 	MachineKey     key.MachinePublic
 	NodeKey        key.NodePublic
 	DiscoKey       key.DiscoPublic
@@ -138,6 +141,8 @@ func (src *PreAuthKey) Clone() *PreAuthKey {
 // A compilation failure here means this code must be regenerated, with the command at the top of this file.
 var _PreAuthKeyCloneNeedsRegeneration = PreAuthKey(struct {
 	ID         uint64
+	TenantID   uint
+	TailnetID  uint
 	Key        string
 	Prefix     string
 	Hash       []byte
