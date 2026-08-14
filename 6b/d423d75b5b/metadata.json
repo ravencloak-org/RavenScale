@@ -1,0 +1,28 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "6bd423d75b5b",
+  "strategy": "manual-commit",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "hscontrol/db/tenant_scope.go",
+    "hscontrol/db/tenant_scope_prototype.html",
+    "hscontrol/db/tenant_scope_test.go"
+  ],
+  "sessions": [
+    {
+      "metadata": "/6b/d423d75b5b/0/metadata.json",
+      "transcript": "/6b/d423d75b5b/0/full.jsonl",
+      "context": "/6b/d423d75b5b/0/context.md",
+      "content_hash": "/6b/d423d75b5b/0/content_hash.txt",
+      "prompt": "/6b/d423d75b5b/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 1594,
+    "cache_creation_tokens": 83920,
+    "cache_read_tokens": 1859966,
+    "output_tokens": 27945,
+    "api_call_count": 21
+  }
+}

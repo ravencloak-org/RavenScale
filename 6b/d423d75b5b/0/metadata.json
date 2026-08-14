@@ -1,0 +1,34 @@
+{
+  "cli_version": "0.4.2",
+  "checkpoint_id": "6bd423d75b5b",
+  "session_id": "a3748748-7a69-4fca-ab09-8d4c5893c798",
+  "strategy": "manual-commit",
+  "created_at": "2026-08-14T10:45:34.002622Z",
+  "branch": "main",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "hscontrol/db/tenant_scope.go",
+    "hscontrol/db/tenant_scope_prototype.html",
+    "hscontrol/db/tenant_scope_test.go"
+  ],
+  "agent": "Claude Code",
+  "transcript_identifier_at_start": "c9798cde-2fcd-436f-bf7d-30f3442da20d",
+  "checkpoint_transcript_start": 1212,
+  "transcript_lines_at_start": 1212,
+  "token_usage": {
+    "input_tokens": 1594,
+    "cache_creation_tokens": 83920,
+    "cache_read_tokens": 1859966,
+    "output_tokens": 27945,
+    "api_call_count": 21
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-08-14T10:45:33.862199Z",
+    "agent_lines": 333,
+    "human_added": 0,
+    "human_modified": 111,
+    "human_removed": 171,
+    "total_committed": 444,
+    "agent_percentage": 75
+  }
+}

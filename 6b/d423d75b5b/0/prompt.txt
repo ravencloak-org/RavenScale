@@ -1,0 +1,565 @@
+Base directory for this skill: /Users/jobinlawrance/.claude/skills/setup-matt-pocock-skills
+
+# Setup Matt Pocock's Skills
+
+Scaffold the per-repo configuration that the engineering skills assume:
+
+- **Issue tracker** — where issues live (GitHub by default; local markdown is also supported out of the box)
+- **Triage labels** — the strings used for the five canonical triage roles
+- **Domain docs** — where `CONTEXT.md` and ADRs live, and the consumer rules for reading them
+
+This is a prompt-driven skill, not a deterministic script. Explore, present what you found, confirm with the user, then write.
+
+## Process
+
+### 1. Explore
+
+Look at the current repo to understand its starting state. Read whatever exists; don't assume:
+
+- `git remote -v` and `.git/config` — is this a GitHub repo? Which one?
+- `AGENTS.md` and `CLAUDE.md` at the repo root — does either exist? Is there already an `## Agent skills` section in either?
+- `CONTEXT.md` and `CONTEXT-MAP.md` at the repo root
+- `docs/adr/` and any `src/*/docs/adr/` directories
+- `docs/agents/` — does this skill's prior output already exist?
+- `.scratch/` — sign that a local-markdown issue tracker convention is already in use
+- Is the `triage` skill installed? (a `triage` skill folder alongside this one, or `triage` in your available skills.) This decides whether Section B runs at all.
+- Monorepo signals — a `pnpm-workspace.yaml`, a `workspaces` field in `package.json`, or a populated `packages/*` with its own `src/`. Present only in a genuinely large multi-package repo; their absence means single-context, which is almost every repo.
+
+### 2. Present findings and ask
+
+Summarise what's present and what's missing. Then take the sections in order — one section, one answer, then the next.
+
+Lead each section with the recommended answer so the user can accept it in a word. Give a one-line explainer only when the choice genuinely branches; skip the section entirely when exploration already settled it (Section B when `triage` isn't installed, Section C when there's no monorepo).
+
+**Section A — Issue tracker.**
+
+> Explainer: The "issue tracker" is where issues live for this repo. Skills like `to-tickets`, `triage`, and `to-spec` read from and write to it — they need to know whether to call `gh issue create`, write a markdown file under `.scratch/`, or follow some other workflow you describe. Pick the place you actually track work for this repo.
+
+Default posture: these skills were designed for GitHub. If a `git remote` points at GitHub, propose that. If a `git remote` points at GitLab (`gitlab.com` or a self-hosted host), propose GitLab. Otherwise (or if the user prefers), offer:
+
+- **GitHub** — issues live in the repo's GitHub Issues (uses the `gh` CLI)
+- **GitLab** — issues live in the repo's GitLab Issues (uses the [`glab`](https://gitlab.com/gitlab-org/cli) CLI)
+- **Local markdown** — issues live as files under `.scratch/<feature>/` in this repo (good for solo projects or repos without a remote)
+- **Other** (Jira, Linear, etc.) — ask the user to describe the workflow in one paragraph; the skill will record it as freeform prose
+
+Record the choice in `docs/agents/issue-tracker.md`. The GitHub and GitLab templates carry a "PRs as a request surface" flag, defaulted **off** — leave it off and don't raise it; a user who wants external PRs in the triage queue can flip the flag in the file later.
+
+**Section B — Triage label vocabulary.** Skip this section entirely if the `triage` skill isn't installed (exploration told you) — an uninstalled skill needs no labels.
+
+If it is installed, ask exactly one question:
+
+> Do you want to keep the default triage labels? (recommended: **yes**)
+
+The defaults are the five canonical roles, each label string equal to its name: `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. On **yes**, write them as-is. Only if the user says no — usually because their tracker already uses other names (e.g. `bug:triage` for `needs-triage`) — collect the overrides so `triage` applies existing labels instead of creating duplicates.
+
+**Section C — Domain docs.** Default to **single-context** — one `CONTEXT.md` + `docs/adr/` at the repo root. This fits almost every repo; write it without asking.
+
+Offer **multi-context** — a root `CONTEXT-MAP.md` pointing to per-context `CONTEXT.md` files — only when exploration found monorepo signals. Then confirm which layout they want.
+
+### 3. Confirm and edit
+
+Show the user a draft of:
+
+- The `## Agent skills` block to add to whichever of `CLAUDE.md` / `AGENTS.md` is being edited (see step 4 for selection rules)
+- The contents of `docs/agents/issue-tracker.md`, `docs/agents/domain.md`, and `docs/agents/triage-labels.md` (the last only when `triage` is installed)
+
+Let them edit before writing.
+
+### 4. Write
+
+**Pick the file to edit:**
+
+- If `CLAUDE.md` exists, edit it.
+- Else if `AGENTS.md` exists, edit it.
+- If neither exists, ask the user which one to create — don't pick for them.
+
+Never create `AGENTS.md` when `CLAUDE.md` already exists (or vice versa) — always edit the one that's already there.
+
+If an `## Agent skills` block already exists in the chosen file, update its contents in-place rather than appending a duplicate. Don't overwrite user edits to the surrounding sections.
+
+The block:
+
+```markdown
+## Agent skills
+
+### Issue tracker
+
+[one-line summary of where issues are tracked]. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+[one-line summary of the label vocabulary]. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+[one-line summary of layout — "single-context" or "multi-context"]. See `docs/agents/domain.md`.
+```
+
+Include the `### Triage labels` sub-block, and write `docs/agents/triage-labels.md`, only when `triage` is installed and Section B ran. When it isn't, both are omitted.
+
+Then write the docs files using the seed templates in this skill folder as a starting point:
+
+- [issue-tracker-github.md](./issue-tracker-github.md) — GitHub issue tracker
+- [issue-tracker-gitlab.md](./issue-tracker-gitlab.md) — GitLab issue tracker
+- [issue-tracker-local.md](./issue-tracker-local.md) — local-markdown issue tracker
+- [triage-labels.md](./triage-labels.md) — label mapping (only if `triage` is installed)
+- [domain.md](./domain.md) — domain doc consumer rules + layout
+
+For "other" issue trackers, write `docs/agents/issue-tracker.md` from scratch using the user's description.
+
+### 5. Done
+
+Tell the user the setup is complete and which engineering skills will now read from these files. Mention they can edit `docs/agents/*.md` directly later — re-running this skill is only necessary if they want to switch issue trackers or restart from scratch.
+
+---
+
+A yes, B yes, AGENTS.md
+
+---
+
+Base directory for this skill: /Users/jobinlawrance/.claude/skills/wayfinder
+
+A loose idea has arrived — too big for one agent session, and wrapped in fog: the way from here to the **destination** isn't visible yet. Wayfinding is about finding that way, not charging at the destination. This skill charts the way as a **shared map** on the repo's issue tracker, then works its **decision tickets** — questions whose resolution is a decision, not slices of a build to execute — one at a time until the route is clear.
+
+The destination varies per effort, and naming it is the first act of charting — it shapes every ticket. It might be a spec to hand off and iterate on, a decision to lock before planning starts, or a change made in place like a data-structure migration. The map is domain-agnostic — engineering work, course content, whatever fits the shape.
+
+## Plan, don't do
+
+Wayfinder is **planning** by default: each ticket resolves a decision, and the map is done when the way is clear — nothing left to decide before someone goes and does the thing. The pull to just do the work is usually the signal you've reached the edge of the map and it's time to hand off. An effort can override this in its **Notes** — carrying execution into the map itself — but absent that, produce decisions, not deliverables.
+
+## Refer by name
+
+Every map and ticket is an issue, so it has a **name** — its title. In everything the human reads — narration, the map's Decisions-so-far — refer to it by that name, never by a bare id, number, or slug. A wall of `#42, #43, #44` is illegible; names read at a glance. The id and URL don't vanish — a name wraps its link — but they ride _inside_ the name, never stand in for it.
+
+## The Map
+
+The map is a single issue on this repo's issue tracker, labelled `wayfinder:map` — the canonical artifact. Its tickets are child issues of the map.
+
+The map is an **index**, not a store. It lists the decisions made and points at the tickets that hold their detail; a decision lives in exactly one place — its ticket — so the map never restates it, only gists it and links.
+
+**Where the map, its child tickets, blocking, and frontier queries physically live is tracker-specific.** The issue tracker should have been provided to you — run `/setup-matt-pocock-skills` if not. Consult the tracker doc's "Wayfinding operations" section for how _this_ repo expresses them. If no tracker has been provided, default to the local-markdown tracker.
+
+### The map body
+
+The whole map at low resolution, loaded once per session. Open tickets are **not** listed — they are open child issues, found by query.
+
+```markdown
+## Destination
+
+<what reaching the end of this map looks like — the spec, decision, or change this effort is finding its way to. One or two lines; every session orients to it before choosing a ticket.>
+
+## Notes
+
+<domain; skills every session should consult; standing preferences for this effort>
+
+## Decisions so far
+
+<!-- the index — one line per closed ticket: enough to judge relevance, then zoom the link for the detail the ticket holds -->
+
+- [<closed ticket title>](link) — <one-line gist of the answer>
+
+## Not yet specified
+
+<!-- see "Fog of war": in-scope fog you can't ticket yet; graduates as the frontier advances -->
+
+## Out of scope
+
+<!-- see "Out of scope": work ruled beyond the destination; closed, never graduates -->
+```
+
+### Tickets
+
+Each ticket is a **child issue** of the map; the tracker's issue id is its identity. Its body is the question, sized to one 100K token agent session:
+
+```markdown
+## Question
+
+<the decision or investigation this ticket resolves>
+```
+
+Each ticket carries a `wayfinder:<type>` label — one of `research`, `prototype`, `grilling`, `task` (see [Ticket Types](#ticket-types)).
+
+A session **claims** a ticket by assigning it to the dev driving the map, **first**, before any work, so concurrent sessions skip it. That assignee _is_ the claim: an open, unassigned ticket is unclaimed.
+
+Blocking uses the tracker's **native** dependency relationship — essential because it renders the frontier _visually_ in the tracker's own UI, so the human sees what's takeable without opening the map. Only a tracker that lacks native blocking falls back to a body convention. A ticket is **unblocked** when every ticket blocking it is closed; the **frontier** is the open, unblocked, unclaimed children — the edge of the known.
+
+The answer isn't part of the body — it's recorded on resolution (see [Work through the map](#work-through-the-map)). Assets created while resolving a ticket are linked from the issue, not pasted in.
+
+## Ticket Types
+
+Every ticket is either **HITL** — human in the loop, worked _with_ a human who speaks for themselves — or **AFK**, driven by the agent alone. A HITL ticket only resolves through that live exchange; the agent never stands in for the human's side of it (a grilling agent that answers its own questions has broken this).
+
+- **Research** (AFK): Reading documentation, third-party APIs, or local resources like knowledge bases to surface a fact a decision waits on. Resolved by a `/research` **subagent**. Use when knowledge outside the current working directory is required.
+- **Prototype** (HITL): Raise the fidelity of the discussion by making a cheap, rough, concrete artifact to react to — an outline, a rough take, a stub, or UI/logic code via the /prototype skill. Links the prototype as an asset. Use when "how should it look" or "how should it behave" is the key question.
+- **Grilling** (HITL): Conversation. The default case. Always invoke the /grilling and /domain-modeling skills.
+- **Task** (HITL or AFK): Manual work that must happen before a _decision_ can be made — nothing to decide, prototype, or research, but the discussion is blocked until it's done. Signing up for a service so its API can be judged, provisioning access, moving data so its shape can be seen. This is the one type that _does_ rather than decides — and it earns its place by unblocking a decision, not by delivering the destination. The agent drives it alone where it can (AFK); otherwise it hands the human a precise checklist (HITL). Resolved when the work is done; the answer records what was done and any resulting facts (credentials location, new URLs, row counts) later tickets depend on.
+
+## Fog of war
+
+The map is _deliberately_ incomplete: don't chart what you can't yet see. Beyond the live tickets lies the **fog of war** — the dim view of decisions and investigations you can tell are coming but can't yet pin down, because they hang on questions still open. Resolving a ticket clears the fog ahead of it, graduating whatever's now specifiable into fresh tickets — one at a time, until the way to the destination is clear and no tickets remain.
+
+The map's **Not yet specified** section is where that dim view is written down: the suspected question, the area to revisit later. It's the undiscovered frontier _toward_ the destination — everything here is in scope, just not sharp enough to ticket. Write as loosely or as fully as the view allows; it doubles as a signpost for collaborators reading where the effort is headed.
+
+**Fog or ticket?** The test is whether you can state the question precisely now — _not_ whether you can answer it now.
+
+- **Ticket when** the question is already sharp — even if it's blocked and you can't act on it yet.
+- **Not yet specified when** you can't yet phrase it that sharply. Don't pre-slice the fog into ticket-sized pieces: it's coarser than a ticket, and one patch may graduate into several tickets, or none, once the frontier reaches it.
+
+**Not yet specified** excludes what's already decided (Decisions so far), what's already a live ticket, and what's out of scope (the next section).
+
+## Out of scope
+
+Fog only ever gathers _toward_ the destination. The destination fixes the scope, so work beyond it is **out of scope** — it isn't fog, and it doesn't belong in **Not yet specified**. It gets its own **Out of scope** section on the map: work you've consciously ruled out of _this_ effort. Scope, not sharpness, lands it here.
+
+Out-of-scope work never graduates — the frontier stops at the destination — so it returns only if the destination is redrawn, and then as a fresh effort, not a resumption.
+
+Ruling something out of scope is a scoping act, not a step on the route. When a ticket that already exists turns out to sit past the destination — mis-scoped in while charting, or exposed by a resolution — **close it** (a closed ticket is unambiguously off the frontier) and leave one line in the **Out of scope** section: the gist plus why it's out of scope, linking the closed ticket. It stays out of **Decisions so far**, which records the route actually walked — a scope boundary isn't a step on it.
+
+## Invocation
+
+Two modes. Either way, **never resolve more than one ticket per session** — with the exception of research tickets.
+
+### Chart the map
+
+User invokes with a loose idea.
+
+1. **Name the destination.** Run a `/grilling` and `/domain-modeling` session to pin down what this map is finding its way to — the spec, decision, or change. The destination fixes the scope, so it's settled first.
+2. **Map the frontier.** Grill again, **breadth-first** this time: fan out across the whole space rather than deep on any one thread, surfacing the open decisions and the first steps takeable now. **If this surfaces no fog** — the way to the destination is already clear, the whole journey small enough for one session — you don't need a map. Stop and ask the user how they'd like to proceed.
+3. **Create the map** (label `wayfinder:map`): Destination and Notes filled in, Decisions-so-far empty, the fog sketched into **Not yet specified**.
+4. **Create the tickets you can specify now** as child issues of the map — then wire blocking edges in a **second pass** (issues need ids before they can reference each other). Wiring sorts them into the frontier and the blocked; everything you can't yet specify stays in the fog — the **Not yet specified** section.
+5. **Fire the research subagents.** For each `research` ticket you just created, spin up a `/research` subagent to resolve it in parallel, capturing its findings on a throwaway `research/<name>` branch with a context pointer from the ticket.
+6. Stop — charting is one session's work; it hand-resolves nothing.
+
+### Work through the map
+
+User invokes with a map (URL or number). A ticket is **optional** — without one, you pick the next decision, not the user.
+
+1. Load the **map** — the low-res view, not every ticket body.
+2. Choose the ticket. If the user named one, use it. Otherwise take the first frontier ticket in order. **Claim it**: assign it to yourself before any work.
+3. Resolve it — **zoom as needed**: fetch the full body of any related or closed ticket on demand; invoke the skills the `## Notes` block names. If in doubt, use `/grilling` and `/domain-modeling`.
+4. Record the resolution: post the answer as a **resolution comment**, **close** the issue, and **append a context pointer** to the map's Decisions-so-far.
+5. Add newly-surfaced tickets (create-then-wire); graduate any fog the answer has made specifiable, clearing each graduated patch from **Not yet specified** so it lives only as its new ticket. If the answer reveals a ticket — this one or another — sits beyond the destination, **rule it out of scope** rather than resolving it on the route. If the decision invalidates other parts of the map, update or delete those tickets.
+
+The user may run unblocked tickets in parallel, so expect other sessions to be editing the tracker concurrently.
+
+---
+
+check ADRs, md files, wiki
+
+---
+
+https://github.com/ravencloak-org/RavenScale/wiki
+
+---
+
+Go for it
+
+---
+
+fire them
+
+---
+
+<task-notification>
+<task-id>a66f5c10d89c5297a</task-id>
+<tool-use-id>toolu_01Gmmk3g1YDrYW53WL8N2GKQ</tool-use-id>
+<output-file>REDACTED.output</output-file>
+<status>completed</status>
+<summary>Agent "Research Headscale data model" finished</summary>
+<note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>
+<result>Done. Ticket #26 resolved, branch pushed, comment posted, issue closed.
+
+Headscale is single-tenant by construction — one global IP pool (`IPAllocator` singleton), globally-unique usernames (3 UNIQUE indexes), one ACL policy row (`GetPolicy` = latest single row), and one MagicDNS `base_domain`; multi-tailnet needs non-null `tenant_id`+`tailnet_id` on users/nodes/keys/policies plus new `tenants`/`tailnets` tables and re-scoping of IP allocation, user uniqueness, policy loading, and the DNS suffix (findings in `docs/research/headscale-data-model.md` on branch `research/headscale-data-model`).</result>
+<usage><subagent_tokens>72711</subagent_tokens><tool_uses>13</tool_uses><duration_ms>147596</duration_ms></usage>
+<worktree><worktreePath>/Users/jobinlawrance/Projects/RavenScale/.claude/worktrees/agent-a66f5c10d89c5297a</worktreePath><worktreeBranch>worktree-agent-a66f5c10d89c5297a</worktreeBranch></worktree>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>a3f1278507674e037</task-id>
+<tool-use-id>REDACTED</tool-use-id>
+<output-file>REDACTED.output</output-file>
+<status>completed</status>
+<summary>Agent "Research Headscale GORM migrations" finished</summary>
+<note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>
+<result>#29: Headscale uses GORM two-dialect switch (SQLite glebarez pure-Go / Postgres) with explicit go-gormigrate versioned migrations run at startup — libSQL works via the local SQLite driver, but no RLS anywhere means scoping is app-layer only and node pubkey uniqueness is app-enforced (no DB unique index).</result>
+<usage><subagent_tokens>64141</subagent_tokens><tool_uses>13</tool_uses><duration_ms>170301</duration_ms></usage>
+<worktree><worktreePath>/Users/jobinlawrance/Projects/RavenScale/.claude/worktrees/agent-a3f1278507674e037</worktreePath><worktreeBranch>worktree-agent-a3f1278507674e037</worktreeBranch></worktree>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>a85690a60572b841c</task-id>
+<tool-use-id>toolu_013iR3fTW8A48oimfJrzGipg</tool-use-id>
+<output-file>REDACTED.output</output-file>
+<status>completed</status>
+<summary>Agent "Research Headscale IP allocation" finished</summary>
+<note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>
+<result>IP allocation (ADR-0002 #3): Headscale uses one server-wide `IPAllocator` singleton (`hscontrol/db/ip.go`, wired in `state.NewState`) whose in-memory `usedIPs` set (seeded from ALL nodes, no tenant filter) is the sole collision guard — `Node.IPv4/IPv6` have no DB unique constraint and no tenant column; RavenScale makes it per-Tailnet by adding `TenantID` + composite `UNIQUE(tenant_id, ipv4/ipv6)`, de-singletoning the allocator with a `tenant_id`-filtered seed query, and threading tenant through `Next()`/`FreeIPs`/`BackfillNodeIPs` while `100.64.0.0/10` stays shared config.</result>
+<usage><subagent_tokens>52033</subagent_tokens><tool_uses>13</tool_uses><duration_ms>201653</duration_ms></usage>
+<worktree><worktreePath>/Users/jobinlawrance/Projects/RavenScale/.REDACTED</worktreePath><worktreeBranch>worktree-agent-a85690a60572b841c</worktreeBranch></worktree>
+</task-notification>
+
+---
+
+<task-notification>
+<task-id>ac5e1045136b6ec44</task-id>
+<tool-use-id>toolu_019JEuYezyy7mfo7UCD7yecg</tool-use-id>
+<output-file>REDACTED.output</output-file>
+<status>completed</status>
+<summary>Agent "Research Headscale registration flow" finished</summary>
+<note>A task-notification fires each time this agent stops with no live background children of its own. The user can send it another message and resume it, so the same task-id may notify more than once.</note>
+<result>Done. Issue #28 commented and closed; findings pushed on branch `research/headscale-registration`.
+
+Decision-map gist:
+
+**#28 (Headscale registration/pre-auth flow):** One authenticated endpoint `POST /register` (Noise mux, machine identity = Noise-session MachineKey, never URL) dispatches auth-key vs OIDC; pre-auth keys are bcrypt-hashed (`hskey-auth-{prefix}-{secret}`) and node→tenant binding happens at exactly two chokepoints (`state.go:2807` createAndSaveNewNode from the key, `state.go:2205` HandleNodeFromAuthPath from the OIDC claim) — so tenant-scoping = add `TenantID` to PreAuthKey/User/Node and stamp it there, always derived from the credential per decision #4.</result>
+<usage><subagent_tokens>75575</subagent_tokens><tool_uses>21</tool_uses><duration_ms>202990</duration_ms></usage>
+<worktree><worktreePath>/Users/jobinlawrance/Projects/RavenScale/.claude/worktrees/agent-ac5e1045136b6ec44</worktreePath><worktreeBranch>worktree-agent-ac5e1045136b6ec44</worktreeBranch></worktree>
+</task-notification>
+
+---
+
+/wayfinder https://github.com/ravencloak-org/RavenScale/issues/25
+
+---
+
+1. yeah close to headscale to receive upstream updates, 2. automatic if possible. 3. New
+
+---
+
+try again
+
+---
+
+A
+
+---
+
+/wayfinder https://github.com/ravencloak-org/RavenScale/issues/31
+
+---
+
+sudo /opt/homebrew/bin/tailscaled install-system-daemon
+
+---
+
+1. a 2. recommendation 3. recomended
+
+---
+
+/wayfinder https://github.com/ravencloak-org/RavenScale/issues/32
+
+---
+
+all recommended
+
+---
+
+/wayfinder https://github.com/ravencloak-org/RavenScale/issues/33
+
+---
+
+go for recomended
+
+---
+
+/wayfinder https://github.com/ravencloak-org/RavenScale/issues/34
+
+---
+
+/wayfinder https://github.com/ravencloak-org/RavenScale/issues/35
+
+---
+
+merge
+
+---
+
+lets do P0-2 (#2)
+
+---
+
+okay b
+
+---
+
+go for B
+
+---
+
+/compact
+
+---
+
+This session is being continued from a previous conversation that ran out of context. The summary below covers the earlier portion of the conversation.
+
+Summary:
+1. Primary Request and Intent:
+   The user is building **RavenScale**, a multi-tenant fork of Headscale (BSD-3 Tailscale control server). The session progressed through four explicit requests:
+   - `/setup-matt-pocock-skills` — scaffold per-repo config (issue tracker, triage labels, domain docs). User chose GitHub issue tracker, default triage labels, and AGENTS.md as the file to create.
+   - `/wayfinder` — chart the path to P0-2 (fork Headscale + build multi-tenant data model) as a shared map on GitHub Issues, working decision tickets one per session.
+   - `merge` — merge the fork ADRs branch to main.
+   - `lets do P0-2 (#2)` — actually execute the build. User explicitly chose **"B — increment with me now, smallest safe steps"** over delegating to a coding agent. Later chose **"go for B"** = apply ADR-0008 (skip out-of-scope dump-replay tests) rather than build machinery to support them.
+   Overarching intent: incrementally, safely build the multi-tenant Headscale fork with each increment verified (build + tests green), following the ADRs produced during wayfinding.
+
+2. Key Technical Concepts:
+   - Headscale fork (v0.29.3) → multi-tenant control plane; module path kept `github.com/juanfont/headscale` (ADR-0006 maintained fork for upstream mergeability)
+   - Multi-tenancy: Tenant(Org) → Tailnet → User/Node; row-level `tenant_id`/`tailnet_id`, N=1 self-host (default Org+Tailnet at fixed IDs)
+   - GORM + go-gormigrate versioned migrations; glebarez pure-Go SQLite; libSQL (ADR-0005); no RLS → app-layer scoping
+   - Auto-scoping GORM session (ADR-0007): context-bound tenant_id + BeforeQuery/Update/Delete callback, fail-closed, `WithAllTenants(ctx)` escape hatch, `go/analysis` CI guard
+   - squibble schema validation (tailscale) — validates live DB schema against embedded schema.sql; backtick-tolerant for tables, NOT for indexes
+   - tailscale viewer/cloner codegen (`go generate` regenerates types_clone.go/types_view.go)
+   - go-cmp with `util.Comparers` shared comparer for struct equality in tests
+   - Wayfinder methodology: map issue + decision tickets, HITL grilling, research subagents, GitHub sub-issues + native blocking dependencies
+
+3. Files and Code Sections:
+   - **hscontrol/types/tenant.go** (NEW) — defines multi-tenancy models. Contains:
+     ```go
+     const (
+         DefaultTenantID uint = 1
+         DefaultTailnetID uint = 1
+     )
+     type Tenant struct { gorm.Model; Name string }
+     type Tailnet struct {
+         gorm.Model
+         TenantID uint `gorm:"not null;index"`
+         Slug string `gorm:"uniqueIndex"`
+         Name string
+     }
+     func SeedDefaultTenant(tx *gorm.DB) error {
+         tenant := Tenant{Model: gorm.Model{ID: DefaultTenantID}, Name: "default"}
+         if err := tx.Where(Tenant{Model: gorm.Model{ID: DefaultTenantID}}).FirstOrCreate(&tenant).Error; err != nil { return err }
+         tailnet := Tailnet{Model: gorm.Model{ID: DefaultTailnetID}, TenantID: DefaultTenantID, Slug: "default", Name: "default"}
+         return tx.Where(Tailnet{Model: gorm.Model{ID: DefaultTailnetID}}).FirstOrCreate(&tailnet).Error
+     }
+     ```
+   - **hscontrol/types/users.go** — added after `gorm.Model`: `TenantID uint \`gorm:"not null;default:1;index"\``
+   - **hscontrol/types/node.go** — added after `ID NodeID`: `TenantID uint \`gorm:"not null;default:1;index"\`` and `TailnetID uint \`gorm:"not null;default:1;index"\``
+   - **hscontrol/types/preauth_key.go** — added after `ID uint64`: TenantID + TailnetID (same tags)
+   - **hscontrol/types/policy.go** — added after `gorm.Model`: TenantID + TailnetID (same tags)
+   - **hscontrol/types/types_clone.go, types_view.go** — regenerated via `go generate ./hscontrol/types/` (directives: `go run tailscale.com/cmd/viewer --type=User,Node,PreAuthKey` and `cloner`)
+   - **hscontrol/db/db.go** — appended `rs-0001-tenancy` migration AFTER last upstream migration in gormigrate slice:
+     ```go
+     {
+         ID: "rs-0001-tenancy",
+         Migrate: func(tx *gorm.DB) error {
+             if err := tx.AutoMigrate(&types.Tenant{}, &types.Tailnet{}); err != nil { return fmt.Errorf("creating tenant tables: %w", err) }
+             if err := types.SeedDefaultTenant(tx); err != nil { return fmt.Errorf("seeding default tenant: %w", err) }
+             if err := tx.AutoMigrate(&types.User{}, &types.Node{}, &types.PreAuthKey{}, &types.Policy{}); err != nil { return fmt.Errorf("adding tenant columns: %w", err) }
+             return nil
+         },
+         Rollback: func(db *gorm.DB) error { return nil },
+     },
+     ```
+     Also added `&types.Tenant{}, &types.Tailnet{}` to InitSchema's AutoMigrate list and `types.SeedDefaultTenant(tx)` call in InitSchema.
+   - **hscontrol/db/schema.sql** — added tenants + tailnets tables, tenant_id column to users, tenant_id/tailnet_id to nodes/pre_auth_keys/policies, and 11 tenant indexes WITH backticks (e.g. `CREATE INDEX \`idx_users_tenant_id\` ON \`users\`(\`tenant_id\`);`). Existing Headscale indexes stay backtick-free.
+   - **hscontrol/db/db_test.go** — added `t.Skip("ADR-0008: in-place Headscale-DB import is out of scope; historical dump replay not supported")` to 3 tests: TestSQLiteMigrationAndDataValidation (line 21), TestPostgresMigrationAndDataValidation (line 512), TestSQLiteAllTestdataMigrations (line 607).
+   - **hscontrol/util/test.go** (just read, line 38) — `var Comparers []cmp.Option = []cmp.Option{ IPComparer, PrefixComparer, AddrPortComparer, MkeyComparer, NkeyComparer, DkeyComparer, ViewSliceIPProtoComparer }` — shared go-cmp comparer with NO IgnoreFields for Node/User currently.
+   - **hscontrol/db/ip_test.go** (line 442) — `comps := append(util.Comparers, cmpopts.IgnoreFields(types.Node{}, ...))` — the TestBackfillIPAddresses comparer.
+   - **docs/adr/0006-0009** — the 4 fork ADRs (merged to main earlier).
+
+4. Errors and fixes:
+   - **git push non-fast-forward** (during merge phase): remote main moved to 957bf73. Fixed with `git pull --rebase origin main` then push.
+   - **Merge blocked by untracked AGENTS.md/.gitignore**: Headscale v0.29.3 contained these; our uncommitted versions blocked merge. Moved them aside to scratchpad, merged, then restored ours (kept RavenScale README/AGENTS, preserved Headscale's as docs/HEADSCALE_README.md, docs/HEADSCALE_AGENTS.md; unioned .gitignore).
+   - **Build error: types_clone.go/types_view.go conversion mismatch**: generated files hard-code struct field layout; adding fields broke `User(struct{...}{})` conversions. Fixed with `go generate ./hscontrol/types/`.
+   - **squibble validation: index backtick mismatch** (`CREATE INDEX \`idx_users_tenant_id\`... vs no-backtick`): GORM creates indexes with backticks; Headscale recreates known ones without. My new tenant indexes keep backticks. Fixed by backticking the 11 tenant index definitions in schema.sql to match GORM's actual output.
+   - **Migration replay failure: `202505141324: saving user: no such column: tenant_id`**: adding tenant_id to shared structs breaks historical typed-model migrations (ListUsers/tx.Save) that reference a column not yet existing at that migration point (both pre- and post-recreation, e.g. 202601121700 also uses ListUsers/ListNodes). User chose B → skipped the 3 dump-replay tests with ADR-0008 reference. Rationale: greenfield RavenScale boots via InitSchema (never replays historical migrations); only Headscale-DB import (ADR-0008 out of scope) hits that path.
+   - **CURRENT UNRESOLVED: TestBackfillIPAddresses fails** — go-cmp diff `TenantID: 0 (want) vs 1 (got)`, `TailnetID: 0 vs 1`. Test constructs expected `types.Node{}` with zero-value tenant fields, but DB `default:1` loads 1. Was investigating whether to add IgnoreFields(TenantID, TailnetID) to shared `util.Comparers`.
+
+5. Problem Solving:
+   - Established the fork base cleanly (v0.29.3, module path preserved, builds green, pushed).
+   - Handled schema drift via empirical schema.sql reconciliation (dumped actual migrated schema with a throwaway test, then matched it).
+   - Discovered squibble's backtick sensitivity asymmetry (tables tolerant, indexes strict).
+   - Diagnosed the retroactive-struct-field migration coupling problem precisely.
+   - ONGOING: the `default:1` DB default causes broad struct-equality test failures (loaded=1 vs constructed=0). Blast radius not yet measured across all packages.
+
+6. All user messages:
+   - "A yes, B yes, AGENTS.md"
+   - "wayfinder" (command)
+   - "check ADRs, md files, wiki"
+   - "https://github.com/ravencloak-org/RavenScale/wiki"
+   - "Go for it"
+   - "1. yeah close to headscale to receive upstream updates, 2. automatic if possible. 3. New / try again"
+   - "A"
+   - "go for it"
+   - "1. a 2. recommendation 3. recomended"
+   - "okay b"
+   - "go for recomended" (with mid-turn message "Q2, sounds right")
+   - "go for it" (fire research agents)
+   - (several /wayfinder <URL> invocations for issues #25, #31, #32, #33, #34, #35)
+   - "1. yeah close..." / "A" / "all recommended" (for #32 grilling)
+   - "go for recomended" (#33)
+   - "merge"
+   - "lets do P0-2 (#2)"
+   - "okay b" / "go for B" (increment approach, then skip tests)
+
+7. Pending Tasks:
+   - Fix TestBackfillIPAddresses and any other struct-equality tests failing due to tenant `default:1` (loaded 1 vs constructed 0).
+   - Complete Step 2 (schema scaffold) with full db package + full repo tests green, then commit + push.
+   - Remaining P0-2 steps (per plan): Step 3 scoped session (TenantDB + callback + WithAllTenants + fail-closed), Step 4 per-Tailnet IPAllocator de-singleton, Step 5 tenant stamping at registration chokepoints, Step 6 N=1 seed (partially done), Step 7 CI scoping guard (go/analysis + raw-SQL/join gap rules).
+   - Optional cleanup: prune leftover origin branches (docs/fork-adrs, proto/gorm-tenant-scope, research/* ×4).
+
+8. Current Work:
+   Immediately before this summary, I was resolving the TestBackfillIPAddresses failure — the last unresolved error in the db package after skipping the 3 dump-replay tests. The failure is a go-cmp mismatch: test fixtures build `types.Node{}` structs with zero-value `TenantID:0`/`TailnetID:0`, but DB rows loaded through the `default:1` column return `TenantID:1`/`TailnetID:1`. I had just read hscontrol/util/test.go and confirmed `util.Comparers` (line 38) is `[]cmp.Option{IPComparer, PrefixComparer, AddrPortComparer, MkeyComparer, NkeyComparer, DkeyComparer, ViewSliceIPProtoComparer}` with no IgnoreFields for Node/User. The candidate fix under consideration was adding `cmpopts.IgnoreFields(types.Node{}, "TenantID", "TailnetID")` and the User equivalent to the shared `util.Comparers` to fix all struct-equality tests at once. The exact diff observed:
+   ```
+   types.Nodes{ &{
+       - TenantID:   0,
+       + TenantID:   1,
+       - TailnetID:  0,
+       + TailnetID:  1,
+   }}
+   ```
+   Confirmed green so far: `go build ./...` = 0; `TestConstraints` = ok (fresh boot path works, tenant columns/seed/defaults verified via INSERT showing tenant_id=1).
+
+9. Optional Next Step:
+   Measure the blast radius of the `default:1` struct-equality mismatch across the repo (run `go test ./hscontrol/...`), then decide the fix approach — likely add `cmpopts.IgnoreFields` for TenantID/TailnetID to the shared `util.Comparers` in hscontrol/util/test.go if the failures are pervasive struct-comparison tests, since the user chose "increment with me now, smallest safe steps." This directly continues Step 2 toward the goal stated by the assistant and accepted by the user: get the db package (and full repo) tests green before committing Step 2. Before broadly editing the shared comparer (which affects production-adjacent test utilities), I should confirm the blast radius and, if the change is broad/non-obvious, check with the user — consistent with the increment-by-increment approach the user explicitly chose ("okay b"). No new work beyond completing Step 2's green-tests goal should begin without user confirmation.
+
+If you need specific details from before compaction (like exact code snippets, error messages, or content you generated), read the full transcript at: /Users/jobinlawrance/.REDACTED.jsonl
+Continue the conversation from where it left off without asking the user any further questions. Resume directly — do not acknowledge the summary, do not recap what was happening, do not preface with "I'll continue" or similar. Pick up the last task as if the break never happened.
+
+---
+
+Where were we?
+
+---
+
+Base directory for this skill: /Users/jobinlawrance/.claude/skills/prototype
+
+# Prototype
+
+A prototype is **throwaway code that answers a question**. The question decides the shape.
+
+## Pick a branch
+
+Identify which question is being answered — from the user's prompt, the surrounding code, or by asking if the user is around:
+
+- **"Does this logic / state model feel right?"** → [LOGIC.md](LOGIC.md). Build a single shareable HTML file — free-play buttons plus tabbed guided walkthroughs — that pushes the state machine through cases that are hard to reason about on paper, and that a non-developer can drive.
+- **"What should this look like?"** → [UI.md](UI.md). Generate several radically different UI variations on a single route, switchable via a URL search param and a floating bottom bar.
+
+The two branches produce very different artifacts — getting this wrong wastes the whole prototype. If the question is genuinely ambiguous and the user isn't reachable, default to whichever branch better matches the surrounding code (a backend module → logic; a page or component → UI) and state the assumption at the top of the prototype.
+
+## Rules that apply to both
+
+1. **Throwaway from day one, and clearly marked as such.** Locate the prototype code close to where it will actually be used (next to the module or page it's prototyping for) so context is obvious — but name it so a casual reader can see it's a prototype, not production. For throwaway UI routes, obey whatever routing convention the project already uses; don't invent a new top-level structure.
+2. **Trivial to run.** A UI prototype starts from one command in the project's task runner — `pnpm <name>`, `python <path>`, `bun <path>`, etc. A logic demo is a single HTML file the user double-clicks. Either way, no thinking required to start it.
+3. **No persistence by default.** State lives in memory. Persistence is the thing the prototype is _checking_, not something it should depend on. If the question explicitly involves a database, hit a scratch DB or a local file with a clear "PROTOTYPE — wipe me" name.
+4. **Skip the polish.** No tests, no error handling beyond what makes the prototype _runnable_, no abstractions. The point is to learn something fast.
+5. **Surface the state.** After every action (logic) or on every variant switch (UI), print or render the full relevant state so the user can see what changed.
+6. **Capture it when done.** Fold any validated decision into the real code, then capture the prototype itself as a **primary source**: commit it to a throwaway branch, out of main, and leave a context pointer to that branch on the implementation issue. Capture the answer too — the verdict and the question it settled — in the issue or a commit. The main branch keeps only the validated decision.
+
+---
+
+Base directory for this skill: /Users/jobinlawrance/.claude/skills/wait-what
+
+Wait — I don't understand where you've got to here. Re-pitch that: give me a little bit of context, talk in ASD-STE100 Simplified Technical English, and use the ubiquitous language from `CONTEXT.md`.
+
+---
+
+but what is it? I don't understand
+
+---
+
+go for recomended fix
