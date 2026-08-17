@@ -1,7 +1,6 @@
 package state
 
 import (
-	"context"
 	"fmt"
 	"testing"
 	"time"
@@ -962,7 +961,7 @@ func TestIssue3371_TaggedNodePastExpirySelfHealsOnReregister(t *testing.T) {
 
 	// A prior (buggy) version persisted a past expiry on this tagged node.
 	past := time.Now().Add(-1 * time.Hour)
-	err = s.DB().NodeSetExpiry(context.Background(), nodeID, &past)
+	err = s.DB().NodeSetExpiry(db.DefaultTenantCtx(), nodeID, &past)
 	require.NoError(t, err)
 
 	// Restart: reload State from the same database file.

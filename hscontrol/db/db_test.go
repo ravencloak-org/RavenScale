@@ -44,7 +44,7 @@ func TestSQLiteMigrationAndDataValidation(t *testing.T) {
 				// Expected data from dump: 1 user, 2 api_keys, 6 nodes
 
 				// Verify users data preservation
-				users, err := Read(context.Background(), hsdb.DB, func(rx *gorm.DB) ([]types.User, error) {
+				users, err := Read(DefaultTenantCtx(), hsdb.DB, func(rx *gorm.DB) ([]types.User, error) {
 					return ListUsers(rx)
 				})
 				require.NoError(t, err)
@@ -58,7 +58,7 @@ func TestSQLiteMigrationAndDataValidation(t *testing.T) {
 				assert.Equal(t, 2, apiKeyCount, "should preserve all 2 api_keys from original schema")
 
 				// Verify nodes data preservation and field validation
-				nodes, err := Read(context.Background(), hsdb.DB, func(rx *gorm.DB) (types.Nodes, error) {
+				nodes, err := Read(DefaultTenantCtx(), hsdb.DB, func(rx *gorm.DB) (types.Nodes, error) {
 					return ListNodes(rx)
 				})
 				require.NoError(t, err)
@@ -91,7 +91,7 @@ func TestSQLiteMigrationAndDataValidation(t *testing.T) {
 			wantFunc: func(t *testing.T, hsdb *HSDatabase) {
 				t.Helper()
 
-				nodes, err := Read(context.Background(), hsdb.DB, func(rx *gorm.DB) (types.Nodes, error) {
+				nodes, err := Read(DefaultTenantCtx(), hsdb.DB, func(rx *gorm.DB) (types.Nodes, error) {
 					return ListNodes(rx)
 				})
 				require.NoError(t, err)
@@ -163,7 +163,7 @@ func TestSQLiteMigrationAndDataValidation(t *testing.T) {
 			wantFunc: func(t *testing.T, hsdb *HSDatabase) {
 				t.Helper()
 
-				nodes, err := Read(context.Background(), hsdb.DB, func(rx *gorm.DB) (types.Nodes, error) {
+				nodes, err := Read(DefaultTenantCtx(), hsdb.DB, func(rx *gorm.DB) (types.Nodes, error) {
 					return ListNodes(rx)
 				})
 				require.NoError(t, err)
@@ -218,7 +218,7 @@ func TestSQLiteMigrationAndDataValidation(t *testing.T) {
 			wantFunc: func(t *testing.T, hsdb *HSDatabase) {
 				t.Helper()
 
-				nodes, err := Read(context.Background(), hsdb.DB, func(rx *gorm.DB) (types.Nodes, error) {
+				nodes, err := Read(DefaultTenantCtx(), hsdb.DB, func(rx *gorm.DB) (types.Nodes, error) {
 					return ListNodes(rx)
 				})
 				require.NoError(t, err)
@@ -268,7 +268,7 @@ func TestSQLiteMigrationAndDataValidation(t *testing.T) {
 			wantFunc: func(t *testing.T, hsdb *HSDatabase) {
 				t.Helper()
 
-				nodes, err := Read(context.Background(), hsdb.DB, func(rx *gorm.DB) (types.Nodes, error) {
+				nodes, err := Read(DefaultTenantCtx(), hsdb.DB, func(rx *gorm.DB) (types.Nodes, error) {
 					return ListNodes(rx)
 				})
 				require.NoError(t, err)
@@ -315,7 +315,7 @@ func TestSQLiteMigrationAndDataValidation(t *testing.T) {
 			wantFunc: func(t *testing.T, hsdb *HSDatabase) {
 				t.Helper()
 
-				nodes, err := Read(context.Background(), hsdb.DB, func(rx *gorm.DB) (types.Nodes, error) {
+				nodes, err := Read(DefaultTenantCtx(), hsdb.DB, func(rx *gorm.DB) (types.Nodes, error) {
 					return ListNodes(rx)
 				})
 				require.NoError(t, err)
@@ -499,7 +499,7 @@ func TestConstraints(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name+"-postgres", func(t *testing.T) {
 			db := newPostgresTestDB(t)
-			tt.run(t, db.DB.Debug())
+			tt.run(t, db.DB.Debug().WithContext(DefaultTenantCtx()))
 		})
 		t.Run(tt.name+"-sqlite", func(t *testing.T) {
 			db, err := newSQLiteTestDB()
@@ -507,7 +507,7 @@ func TestConstraints(t *testing.T) {
 				t.Fatalf("creating database: %s", err)
 			}
 
-			tt.run(t, db.DB.Debug())
+			tt.run(t, db.DB.Debug().WithContext(DefaultTenantCtx()))
 		})
 	}
 }

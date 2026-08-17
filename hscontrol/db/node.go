@@ -44,7 +44,7 @@ var (
 // If no peer IDs are given, all peers are returned.
 // If at least one peer ID is given, only these peer nodes will be returned.
 func (hsdb *HSDatabase) ListPeers(nodeID types.NodeID, peerIDs ...types.NodeID) (types.Nodes, error) {
-	return ListPeers(hsdb.DB, nodeID, peerIDs...)
+	return ListPeers(hsdb.DB.WithContext(DefaultTenantCtx()), nodeID, peerIDs...)
 }
 
 // ListPeers returns peers of node, regardless of any Policy or if the node is expired.
@@ -71,7 +71,7 @@ func ListPeers(tx *gorm.DB, nodeID types.NodeID, peerIDs ...types.NodeID) (types
 // ListNodes queries the database for either all nodes if no parameters are given
 // or for the given nodes if at least one node ID is given as parameter.
 func (hsdb *HSDatabase) ListNodes(nodeIDs ...types.NodeID) (types.Nodes, error) {
-	return ListNodes(hsdb.DB, nodeIDs...)
+	return ListNodes(hsdb.DB.WithContext(DefaultTenantCtx()), nodeIDs...)
 }
 
 // ListNodes queries the database for either all nodes if no parameters are given
@@ -127,7 +127,7 @@ func getNode(tx *gorm.DB, uid types.UserID, name string) (*types.Node, error) {
 }
 
 func (hsdb *HSDatabase) GetNodeByID(id types.NodeID) (*types.Node, error) {
-	return GetNodeByID(hsdb.DB, id)
+	return GetNodeByID(hsdb.DB.WithContext(DefaultTenantCtx()), id)
 }
 
 // GetNodeByID finds a [types.Node] by ID and returns the [types.Node] struct.
@@ -145,7 +145,7 @@ func GetNodeByID(tx *gorm.DB, id types.NodeID) (*types.Node, error) {
 }
 
 func (hsdb *HSDatabase) GetNodeByNodeKey(nodeKey key.NodePublic) (*types.Node, error) {
-	return GetNodeByNodeKey(hsdb.DB, nodeKey)
+	return GetNodeByNodeKey(hsdb.DB.WithContext(DefaultTenantCtx()), nodeKey)
 }
 
 // GetNodeByNodeKey finds a [types.Node] by its [key.NodePublic] and returns the [types.Node] struct.
@@ -550,7 +550,7 @@ func (hsdb *HSDatabase) CreateNodeForTest(user *types.User, hostname ...string) 
 	}
 
 	// Create a preauth key for the node
-	pak, err := hsdb.CreatePreAuthKey(context.Background(), user.TypedID(), false, false, nil, nil)
+	pak, err := hsdb.CreatePreAuthKey(DefaultTenantCtx(), user.TypedID(), false, false, nil, nil)
 	if err != nil {
 		panic(fmt.Sprintf("failed to create preauth key for test node: %v", err))
 	}
@@ -570,7 +570,7 @@ func (hsdb *HSDatabase) CreateNodeForTest(user *types.User, hostname ...string) 
 		AuthKeyID:      &pakID,
 	}
 
-	err = hsdb.DB.Save(node).Error
+	err = hsdb.DB.WithContext(DefaultTenantCtx()).Save(node).Error
 	if err != nil {
 		panic(fmt.Sprintf("failed to create test node: %v", err))
 	}
@@ -594,7 +594,7 @@ func (hsdb *HSDatabase) CreateRegisteredNodeForTest(user *types.User, hostname .
 
 	var registeredNode *types.Node
 
-	err = hsdb.DB.Transaction(func(tx *gorm.DB) error {
+	err = hsdb.DB.WithContext(DefaultTenantCtx()).Transaction(func(tx *gorm.DB) error {
 		var err error
 
 		registeredNode, err = RegisterNodeForTest(tx, *node, ipv4, ipv6)

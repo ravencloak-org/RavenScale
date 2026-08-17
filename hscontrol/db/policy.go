@@ -17,7 +17,7 @@ func (hsdb *HSDatabase) SetPolicy(policy string) (*types.Policy, error) {
 		Data: policy,
 	}
 
-	err := hsdb.DB.Clauses(clause.Returning{}).Create(&p).Error
+	err := hsdb.DB.WithContext(DefaultTenantCtx()).Clauses(clause.Returning{}).Create(&p).Error
 	if err != nil {
 		return nil, err
 	}
@@ -27,7 +27,7 @@ func (hsdb *HSDatabase) SetPolicy(policy string) (*types.Policy, error) {
 
 // GetPolicy returns the latest policy in the database.
 func (hsdb *HSDatabase) GetPolicy() (*types.Policy, error) {
-	return GetPolicy(hsdb.DB)
+	return GetPolicy(hsdb.DB.WithContext(DefaultTenantCtx()))
 }
 
 // GetPolicy returns the latest policy from the database.

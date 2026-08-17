@@ -1,7 +1,6 @@
 package db
 
 import (
-	"context"
 	"fmt"
 	"slices"
 	"strings"
@@ -25,7 +24,7 @@ func TestCreatePreAuthKey(t *testing.T) {
 			test: func(t *testing.T, db *HSDatabase) {
 				t.Helper()
 
-				_, err := db.CreatePreAuthKey(context.Background(), new(types.UserID(12345)), true, false, nil, nil)
+				_, err := db.CreatePreAuthKey(DefaultTenantCtx(), new(types.UserID(12345)), true, false, nil, nil)
 				assert.Error(t, err)
 			},
 		},
@@ -34,15 +33,15 @@ func TestCreatePreAuthKey(t *testing.T) {
 			test: func(t *testing.T, db *HSDatabase) {
 				t.Helper()
 
-				user, err := db.CreateUser(context.Background(), types.User{Name: "test"})
+				user, err := db.CreateUser(DefaultTenantCtx(), types.User{Name: "test"})
 				require.NoError(t, err)
 
-				key, err := db.CreatePreAuthKey(context.Background(), user.TypedID(), true, false, nil, nil)
+				key, err := db.CreatePreAuthKey(DefaultTenantCtx(), user.TypedID(), true, false, nil, nil)
 				require.NoError(t, err)
 				assert.NotEmpty(t, key.Key)
 
 				// List keys for the user
-				keys, err := db.ListPreAuthKeys(context.Background())
+				keys, err := db.ListPreAuthKeys(DefaultTenantCtx())
 				require.NoError(t, err)
 				assert.Len(t, keys, 1)
 
@@ -72,10 +71,10 @@ func TestPreAuthKeyACLTags(t *testing.T) {
 			test: func(t *testing.T, db *HSDatabase) {
 				t.Helper()
 
-				user, err := db.CreateUser(context.Background(), types.User{Name: "test-tags-1"})
+				user, err := db.CreateUser(DefaultTenantCtx(), types.User{Name: "test-tags-1"})
 				require.NoError(t, err)
 
-				_, err = db.CreatePreAuthKey(context.Background(), user.TypedID(), false, false, nil, []string{"badtag"})
+				_, err = db.CreatePreAuthKey(DefaultTenantCtx(), user.TypedID(), false, false, nil, []string{"badtag"})
 				assert.Error(t, err)
 			},
 		},
@@ -84,16 +83,16 @@ func TestPreAuthKeyACLTags(t *testing.T) {
 			test: func(t *testing.T, db *HSDatabase) {
 				t.Helper()
 
-				user, err := db.CreateUser(context.Background(), types.User{Name: "test-tags-2"})
+				user, err := db.CreateUser(DefaultTenantCtx(), types.User{Name: "test-tags-2"})
 				require.NoError(t, err)
 
 				expectedTags := []string{"tag:test1", "tag:test2"}
 				tagsWithDuplicate := []string{"tag:test1", "tag:test2", "tag:test2"}
 
-				_, err = db.CreatePreAuthKey(context.Background(), user.TypedID(), false, false, nil, tagsWithDuplicate)
+				_, err = db.CreatePreAuthKey(DefaultTenantCtx(), user.TypedID(), false, false, nil, tagsWithDuplicate)
 				require.NoError(t, err)
 
-				listedPaks, err := db.ListPreAuthKeys(context.Background())
+				listedPaks, err := db.ListPreAuthKeys(DefaultTenantCtx())
 				require.NoError(t, err)
 				require.Len(t, listedPaks, 1)
 
@@ -117,10 +116,10 @@ func TestPreAuthKeyACLTags(t *testing.T) {
 func TestCannotDeleteAssignedPreAuthKey(t *testing.T) {
 	db, err := newSQLiteTestDB()
 	require.NoError(t, err)
-	user, err := db.CreateUser(context.Background(), types.User{Name: "test8"})
+	user, err := db.CreateUser(DefaultTenantCtx(), types.User{Name: "test8"})
 	require.NoError(t, err)
 
-	key, err := db.CreatePreAuthKey(context.Background(), user.TypedID(), false, false, nil, []string{"tag:good"})
+	key, err := db.CreatePreAuthKey(DefaultTenantCtx(), user.TypedID(), false, false, nil, []string{"tag:good"})
 	require.NoError(t, err)
 
 	node := types.Node{
@@ -130,9 +129,9 @@ func TestCannotDeleteAssignedPreAuthKey(t *testing.T) {
 		RegisterMethod: util.RegisterMethodAuthKey,
 		AuthKeyID:      new(key.ID),
 	}
-	db.DB.Save(&node)
+	db.DB.WithContext(DefaultTenantCtx()).Save(&node)
 
-	err = db.DB.Delete(&types.PreAuthKey{ID: key.ID}).Error
+	err = db.DB.WithContext(DefaultTenantCtx()).Delete(&types.PreAuthKey{ID: key.ID}).Error
 	require.ErrorContains(t, err, "constraint failed: FOREIGN KEY constraint failed")
 }
 
@@ -182,7 +181,7 @@ func TestPreAuthKeyAuthentication(t *testing.T) {
 			name: "new_key_bcrypt",
 			setupKey: func() string {
 				// Create new key via API
-				keyStr, err := db.CreatePreAuthKey(context.Background(),
+				keyStr, err := db.CreatePreAuthKey(DefaultTenantCtx(),
 					user.TypedID(),
 					true, false, nil, []string{"tag:test"},
 				)
@@ -205,7 +204,7 @@ func TestPreAuthKeyAuthentication(t *testing.T) {
 		{
 			name: "new_key_format_validation",
 			setupKey: func() string {
-				keyStr, err := db.CreatePreAuthKey(context.Background(),
+				keyStr, err := db.CreatePreAuthKey(DefaultTenantCtx(),
 					user.TypedID(),
 					true, false, nil, nil,
 				)
@@ -235,7 +234,7 @@ func TestPreAuthKeyAuthentication(t *testing.T) {
 			name: "invalid_bcrypt_hash",
 			setupKey: func() string {
 				// Create valid key
-				key, err := db.CreatePreAuthKey(context.Background(),
+				key, err := db.CreatePreAuthKey(DefaultTenantCtx(),
 					user.TypedID(),
 					true, false, nil, nil,
 				)
@@ -381,7 +380,7 @@ func TestMultipleLegacyKeysAllowed(t *testing.T) {
 	db, err := newSQLiteTestDB()
 	require.NoError(t, err)
 
-	user, err := db.CreateUser(context.Background(), types.User{Name: "test-legacy"})
+	user, err := db.CreateUser(DefaultTenantCtx(), types.User{Name: "test-legacy"})
 	require.NoError(t, err)
 
 	// Create multiple legacy keys by directly inserting with empty prefix
@@ -402,16 +401,16 @@ func TestMultipleLegacyKeysAllowed(t *testing.T) {
 	// Verify all legacy keys can be retrieved
 	var legacyKeys []types.PreAuthKey
 
-	err = db.DB.Where("prefix = '' OR prefix IS NULL").Find(&legacyKeys).Error
+	err = db.DB.WithContext(DefaultTenantCtx()).Where("prefix = '' OR prefix IS NULL").Find(&legacyKeys).Error
 	require.NoError(t, err)
 	assert.Len(t, legacyKeys, 5, "should have created 5 legacy keys")
 
 	// Now create new bcrypt-based keys - these should have unique prefixes
-	key1, err := db.CreatePreAuthKey(context.Background(), user.TypedID(), true, false, nil, nil)
+	key1, err := db.CreatePreAuthKey(DefaultTenantCtx(), user.TypedID(), true, false, nil, nil)
 	require.NoError(t, err)
 	assert.NotEmpty(t, key1.Key)
 
-	key2, err := db.CreatePreAuthKey(context.Background(), user.TypedID(), true, false, nil, nil)
+	key2, err := db.CreatePreAuthKey(DefaultTenantCtx(), user.TypedID(), true, false, nil, nil)
 	require.NoError(t, err)
 	assert.NotEmpty(t, key2.Key)
 
@@ -454,10 +453,10 @@ func TestUsePreAuthKeyAtomicCAS(t *testing.T) {
 	db, err := newSQLiteTestDB()
 	require.NoError(t, err)
 
-	user, err := db.CreateUser(context.Background(), types.User{Name: "atomic-cas"})
+	user, err := db.CreateUser(DefaultTenantCtx(), types.User{Name: "atomic-cas"})
 	require.NoError(t, err)
 
-	pakNew, err := db.CreatePreAuthKey(context.Background(), user.TypedID(), false /* reusable */, false, nil, nil)
+	pakNew, err := db.CreatePreAuthKey(DefaultTenantCtx(), user.TypedID(), false /* reusable */, false, nil, nil)
 	require.NoError(t, err)
 
 	pak, err := db.GetPreAuthKey(pakNew.Key)
@@ -465,7 +464,7 @@ func TestUsePreAuthKeyAtomicCAS(t *testing.T) {
 	require.False(t, pak.Reusable, "test sanity: key must be single-use")
 
 	// First Use should commit cleanly.
-	err = db.Write(context.Background(), func(tx *gorm.DB) error {
+	err = db.Write(DefaultTenantCtx(), func(tx *gorm.DB) error {
 		return UsePreAuthKey(tx, pak)
 	})
 	require.NoError(t, err, "first UsePreAuthKey should succeed")
@@ -478,7 +477,7 @@ func TestUsePreAuthKeyAtomicCAS(t *testing.T) {
 
 	stale.Used = false
 
-	err = db.Write(context.Background(), func(tx *gorm.DB) error {
+	err = db.Write(DefaultTenantCtx(), func(tx *gorm.DB) error {
 		return UsePreAuthKey(tx, stale)
 	})
 	require.Error(t, err, "second UsePreAuthKey on the same single-use key must fail")

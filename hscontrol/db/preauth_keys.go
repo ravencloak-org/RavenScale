@@ -304,7 +304,7 @@ func isValidBase64URLSafe(s string) bool {
 }
 
 func (hsdb *HSDatabase) GetPreAuthKey(key string) (*types.PreAuthKey, error) {
-	return GetPreAuthKey(hsdb.DB, key)
+	return GetPreAuthKey(hsdb.DB.WithContext(DefaultTenantCtx()), key)
 }
 
 // GetPreAuthKey returns a [types.PreAuthKey] for a given key. The caller is responsible

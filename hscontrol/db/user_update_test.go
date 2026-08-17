@@ -1,7 +1,6 @@
 package db
 
 import (
-	"context"
 	"database/sql"
 	"testing"
 
@@ -28,7 +27,7 @@ func TestUserUpdatePreservesUnchangedFields(t *testing.T) {
 		},
 	}
 
-	createdUser, err := database.CreateUser(context.Background(), initialUser)
+	createdUser, err := database.CreateUser(DefaultTenantCtx(), initialUser)
 	require.NoError(t, err)
 	require.NotNil(t, createdUser)
 
@@ -40,7 +39,7 @@ func TestUserUpdatePreservesUnchangedFields(t *testing.T) {
 	assert.Equal(t, "provider-123", createdUser.ProviderIdentifier.String)
 
 	// Simulate what UpdateUser does: load user, modify one field, save
-	_, err = Write(context.Background(), database.DB, func(tx *gorm.DB) (*types.User, error) {
+	_, err = Write(DefaultTenantCtx(), database.DB, func(tx *gorm.DB) (*types.User, error) {
 		user, err := GetUserByID(tx, types.UserID(createdUser.ID))
 		if err != nil {
 			return nil, err
@@ -60,7 +59,7 @@ func TestUserUpdatePreservesUnchangedFields(t *testing.T) {
 	require.NoError(t, err)
 
 	// Read user back from database
-	updatedUser, err := Read(context.Background(), database.DB, func(rx *gorm.DB) (*types.User, error) {
+	updatedUser, err := Read(DefaultTenantCtx(), database.DB, func(rx *gorm.DB) (*types.User, error) {
 		return GetUserByID(rx, types.UserID(createdUser.ID))
 	})
 	require.NoError(t, err)
@@ -94,11 +93,11 @@ func TestUserUpdateWithUpdatesMethod(t *testing.T) {
 		},
 	}
 
-	createdUser, err := database.CreateUser(context.Background(), initialUser)
+	createdUser, err := database.CreateUser(DefaultTenantCtx(), initialUser)
 	require.NoError(t, err)
 
 	// Update using Updates() method
-	_, err = Write(context.Background(), database.DB, func(tx *gorm.DB) (*types.User, error) {
+	_, err = Write(DefaultTenantCtx(), database.DB, func(tx *gorm.DB) (*types.User, error) {
 		user, err := GetUserByID(tx, types.UserID(createdUser.ID))
 		if err != nil {
 			return nil, err
@@ -119,7 +118,7 @@ func TestUserUpdateWithUpdatesMethod(t *testing.T) {
 	require.NoError(t, err)
 
 	// Verify changes
-	updatedUser, err := Read(context.Background(), database.DB, func(rx *gorm.DB) (*types.User, error) {
+	updatedUser, err := Read(DefaultTenantCtx(), database.DB, func(rx *gorm.DB) (*types.User, error) {
 		return GetUserByID(rx, types.UserID(createdUser.ID))
 	})
 	require.NoError(t, err)

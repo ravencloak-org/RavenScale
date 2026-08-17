@@ -949,6 +949,12 @@ WHERE tags IS NOT NULL AND tags != '[]' AND tags != '' AND tags != 'null'
 		}
 	}
 
+	// Arm the auto-scoping tenant session (ADR-0007 / #36). After this, every
+	// tenant-scoped table access must carry a tenant in context or it fails closed.
+	if err := RegisterTenantScoping(dbConn); err != nil {
+		return nil, fmt.Errorf("registering tenant scoping: %w", err)
+	}
+
 	db := HSDatabase{
 		DB:  dbConn,
 		cfg: cfg,

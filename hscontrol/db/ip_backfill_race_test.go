@@ -19,7 +19,7 @@ func TestAllocatorConcurrentNextAndBackfillNoRace(t *testing.T) {
 	p4 := netip.MustParsePrefix("100.64.0.0/10")
 	p6 := netip.MustParsePrefix("fd7a:115c:a1e0::/48")
 
-	alloc, err := NewIPAllocator(context.Background(), nil, &p4, &p6, types.IPAllocationStrategySequential)
+	alloc, err := NewIPAllocator(WithAllTenants(context.Background()), nil, &p4, &p6, types.IPAllocationStrategySequential)
 	require.NoError(t, err)
 
 	const iterations = 2000

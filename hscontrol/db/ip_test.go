@@ -90,9 +90,9 @@ func TestIPAllocatorSequential(t *testing.T) {
 			dbFunc: func() *HSDatabase {
 				db := dbForTest(t)
 				user := types.User{Name: ""}
-				db.DB.Save(&user)
+				db.DB.WithContext(DefaultTenantCtx()).Save(&user)
 
-				db.DB.Save(&types.Node{
+				db.DB.WithContext(DefaultTenantCtx()).Save(&types.Node{
 					User: &user,
 					IPv4: nap("100.64.0.1"),
 					IPv6: nap("fd7a:115c:a1e0::1"),
@@ -118,9 +118,9 @@ func TestIPAllocatorSequential(t *testing.T) {
 			dbFunc: func() *HSDatabase {
 				db := dbForTest(t)
 				user := types.User{Name: ""}
-				db.DB.Save(&user)
+				db.DB.WithContext(DefaultTenantCtx()).Save(&user)
 
-				db.DB.Save(&types.Node{
+				db.DB.WithContext(DefaultTenantCtx()).Save(&types.Node{
 					User: &user,
 					IPv4: nap("100.64.0.2"),
 					IPv6: nap("fd7a:115c:a1e0::2"),
@@ -149,7 +149,7 @@ func TestIPAllocatorSequential(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			db := tt.dbFunc()
 
-			alloc, _ := NewIPAllocator(context.Background(),
+			alloc, _ := NewIPAllocator(WithAllTenants(context.Background()),
 				db,
 				tt.prefix4,
 				tt.prefix6,
@@ -259,7 +259,7 @@ func TestIPAllocatorRandom(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			db := tt.dbFunc()
 
-			alloc, _ := NewIPAllocator(context.Background(), db, tt.prefix4, tt.prefix6, types.IPAllocationStrategyRandom)
+			alloc, _ := NewIPAllocator(WithAllTenants(context.Background()), db, tt.prefix4, tt.prefix6, types.IPAllocationStrategyRandom)
 
 			for range tt.getCount {
 				got4, got6, err := alloc.Next(types.DefaultTailnetID)
@@ -308,9 +308,9 @@ func TestBackfillIPAddresses(t *testing.T) {
 			dbFunc: func() *HSDatabase {
 				db := dbForTest(t)
 				user := types.User{Name: ""}
-				db.DB.Save(&user)
+				db.DB.WithContext(DefaultTenantCtx()).Save(&user)
 
-				db.DB.Save(&types.Node{
+				db.DB.WithContext(DefaultTenantCtx()).Save(&types.Node{
 					User: &user,
 					IPv4: nap("100.64.0.1"),
 				})
@@ -333,9 +333,9 @@ func TestBackfillIPAddresses(t *testing.T) {
 			dbFunc: func() *HSDatabase {
 				db := dbForTest(t)
 				user := types.User{Name: ""}
-				db.DB.Save(&user)
+				db.DB.WithContext(DefaultTenantCtx()).Save(&user)
 
-				db.DB.Save(&types.Node{
+				db.DB.WithContext(DefaultTenantCtx()).Save(&types.Node{
 					User: &user,
 					IPv6: nap("fd7a:115c:a1e0::1"),
 				})
@@ -358,9 +358,9 @@ func TestBackfillIPAddresses(t *testing.T) {
 			dbFunc: func() *HSDatabase {
 				db := dbForTest(t)
 				user := types.User{Name: ""}
-				db.DB.Save(&user)
+				db.DB.WithContext(DefaultTenantCtx()).Save(&user)
 
-				db.DB.Save(&types.Node{
+				db.DB.WithContext(DefaultTenantCtx()).Save(&types.Node{
 					User: &user,
 					IPv4: nap("100.64.0.1"),
 					IPv6: nap("fd7a:115c:a1e0::1"),
@@ -382,9 +382,9 @@ func TestBackfillIPAddresses(t *testing.T) {
 			dbFunc: func() *HSDatabase {
 				db := dbForTest(t)
 				user := types.User{Name: ""}
-				db.DB.Save(&user)
+				db.DB.WithContext(DefaultTenantCtx()).Save(&user)
 
-				db.DB.Save(&types.Node{
+				db.DB.WithContext(DefaultTenantCtx()).Save(&types.Node{
 					User: &user,
 					IPv4: nap("100.64.0.1"),
 					IPv6: nap("fd7a:115c:a1e0::1"),
@@ -406,21 +406,21 @@ func TestBackfillIPAddresses(t *testing.T) {
 			dbFunc: func() *HSDatabase {
 				db := dbForTest(t)
 				user := types.User{Name: ""}
-				db.DB.Save(&user)
+				db.DB.WithContext(DefaultTenantCtx()).Save(&user)
 
-				db.DB.Save(&types.Node{
+				db.DB.WithContext(DefaultTenantCtx()).Save(&types.Node{
 					User: &user,
 					IPv4: nap("100.64.0.1"),
 				})
-				db.DB.Save(&types.Node{
+				db.DB.WithContext(DefaultTenantCtx()).Save(&types.Node{
 					User: &user,
 					IPv4: nap("100.64.0.2"),
 				})
-				db.DB.Save(&types.Node{
+				db.DB.WithContext(DefaultTenantCtx()).Save(&types.Node{
 					User: &user,
 					IPv4: nap("100.64.0.3"),
 				})
-				db.DB.Save(&types.Node{
+				db.DB.WithContext(DefaultTenantCtx()).Save(&types.Node{
 					User: &user,
 					IPv4: nap("100.64.0.4"),
 				})
@@ -456,7 +456,7 @@ func TestBackfillIPAddresses(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			db := tt.dbFunc()
 
-			alloc, err := NewIPAllocator(context.Background(),
+			alloc, err := NewIPAllocator(WithAllTenants(context.Background()),
 				db,
 				tt.prefix4,
 				tt.prefix6,
@@ -466,7 +466,7 @@ func TestBackfillIPAddresses(t *testing.T) {
 				t.Fatalf("failed to set up ip alloc: %s", err)
 			}
 
-			logs, err := db.BackfillNodeIPs(context.Background(), alloc)
+			logs, err := db.BackfillNodeIPs(DefaultTenantCtx(), alloc)
 			if err != nil {
 				t.Fatalf("failed to backfill: %s", err)
 			}
@@ -491,7 +491,7 @@ func TestIPAllocatorNextNoReservedIPs(t *testing.T) {
 
 	defer db.Close()
 
-	alloc, err := NewIPAllocator(context.Background(),
+	alloc, err := NewIPAllocator(WithAllTenants(context.Background()),
 		db,
 		new(tsaddr.CGNATRange()),
 		new(tsaddr.TailscaleULARange()),
@@ -530,7 +530,7 @@ func TestIPAllocatorPerTailnet(t *testing.T) {
 		count         = 50
 	)
 
-	alloc, err := NewIPAllocator(context.Background(),
+	alloc, err := NewIPAllocator(WithAllTenants(context.Background()),
 		nil,
 		mpp("100.64.0.0/10"),
 		mpp("fd7a:115c:a1e0::/48"),

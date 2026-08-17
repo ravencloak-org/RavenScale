@@ -26,6 +26,7 @@ import (
 	"context"
 	"errors"
 
+	"github.com/juanfont/headscale/hscontrol/types"
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 )
@@ -50,6 +51,15 @@ type tenantScope struct {
 // a session using this context are confined to that Org.
 func WithTenant(ctx context.Context, tenantID uint) context.Context {
 	return context.WithValue(ctx, tenantCtxKey{}, tenantScope{tenantID: tenantID})
+}
+
+// DefaultTenantCtx returns a context scoped to the N=1 default Org (ADR-0003).
+// Interim seam for #36: production/test call sites that do not yet thread a
+// real per-request tenant use this so the armed scoping session resolves to
+// the single self-host Org. Replace with a real per-request WithTenant when
+// N>1 request-boundary plumbing lands (phase 2-proper).
+func DefaultTenantCtx() context.Context {
+	return WithTenant(context.Background(), types.DefaultTenantID)
 }
 
 // WithAllTenants marks the context as an explicit cross-Org (admin) path: no
@@ -113,8 +123,15 @@ func scopeRead(db *gorm.DB) {
 		_ = db.AddError(ErrNoTenantInContext) // fail closed
 		return
 	}
+	// Qualify tenant_id with the primary table so joined queries (e.g. a node
+	// joined to pre_auth_keys, both tenant-scoped) do not error on an ambiguous
+	// column. Falls back to the schema table name if Statement.Table is unset.
+	table := db.Statement.Table
+	if table == "" && db.Statement.Schema != nil {
+		table = db.Statement.Schema.Table
+	}
 	db.Statement.AddClause(clause.Where{Exprs: []clause.Expression{
-		clause.Eq{Column: clause.Column{Name: "tenant_id"}, Value: tenantID},
+		clause.Eq{Column: clause.Column{Table: table, Name: "tenant_id"}, Value: tenantID},
 	}})
 }
 

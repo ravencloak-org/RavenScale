@@ -22,7 +22,7 @@ import (
 func TestIPAllocatorRandomExhaustionReturnsError(t *testing.T) {
 	prefix4 := netip.MustParsePrefix("100.64.0.0/30")
 
-	alloc, err := NewIPAllocator(context.Background(), nil, &prefix4, nil, types.IPAllocationStrategyRandom)
+	alloc, err := NewIPAllocator(WithAllTenants(context.Background()), nil, &prefix4, nil, types.IPAllocationStrategyRandom)
 	if err != nil {
 		t.Fatalf("NewIPAllocator: %v", err)
 	}

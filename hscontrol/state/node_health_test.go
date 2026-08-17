@@ -35,7 +35,7 @@ func TestScanNodeHealthReportsInvalidNameWithoutMutating(t *testing.T) {
 	bad := database.CreateRegisteredNodeForTest(user, "scan-bad")
 	good := database.CreateRegisteredNodeForTest(user, "scan-good")
 
-	require.NoError(t, database.DB.
+	require.NoError(t, database.DB.WithContext(db.DefaultTenantCtx()).
 		Model(&types.Node{}).
 		Where("id = ?", bad.ID).
 		Update("given_name", "").Error)

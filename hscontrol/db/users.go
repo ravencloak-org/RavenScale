@@ -122,7 +122,7 @@ func RenameUser(tx *gorm.DB, uid types.UserID, newName string) error {
 }
 
 func (hsdb *HSDatabase) GetUserByID(uid types.UserID) (*types.User, error) {
-	return GetUserByID(hsdb.DB, uid)
+	return GetUserByID(hsdb.DB.WithContext(DefaultTenantCtx()), uid)
 }
 
 func GetUserByID(tx *gorm.DB, uid types.UserID) (*types.User, error) {
@@ -156,7 +156,7 @@ func GetUserByOIDCIdentifier(tx *gorm.DB, id string) (*types.User, error) {
 }
 
 func (hsdb *HSDatabase) ListUsers(where ...*types.User) ([]types.User, error) {
-	return ListUsers(hsdb.DB, where...)
+	return ListUsers(hsdb.DB.WithContext(DefaultTenantCtx()), where...)
 }
 
 // ListUsers gets all the existing users.
@@ -223,7 +223,7 @@ func (hsdb *HSDatabase) CreateUserForTest(name ...string) *types.User {
 		userName = name[0]
 	}
 
-	user, err := hsdb.CreateUser(context.Background(), types.User{Name: userName})
+	user, err := hsdb.CreateUser(DefaultTenantCtx(), types.User{Name: userName})
 	if err != nil {
 		panic(fmt.Sprintf("failed to create test user: %v", err))
 	}
