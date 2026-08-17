@@ -29,3 +29,24 @@ A RavenScale control plane is **read-heavy and low-write** — nodes poll map up
 
 - **Postgres + CloudNativePG now** — proven auto-failover HA, PITR, RLS as defense-in-depth. Rejected for now: ops overhead unjustified pre-product-fit; revisit at #11 if the wedge becomes enterprise-HA/compliance.
 - **SQLite-clustering OSS (rqlite / LiteFS / dqlite)** — real HA but none is a zero-effort drop-in for Headscale's GORM/SQLite layer. Deferred to the #11 evaluation.
+
+## Amendment 2026-08-17 — backup tool: Litestream, not `sqld` bottomless
+
+The options survey (RESEARCH/DATASTORE_LIBSQL_VS_POSTGRES.md) named `sqld` +
+"bottomless" as the WAL→S3 mechanism, and flagged that its version-specific
+behaviour needed verifying against live docs before building. On implementing
+`P0-3` (#3) that verification resolved it:
+
+- Using `sqld` as the engine forces Headscale off its `glebarez/sqlite` file
+  driver onto a libSQL client/dialector, and reworks the squibble schema
+  validation — real risk for **zero** Phase-0 benefit (no clustering or read
+  replicas needed yet).
+- **Litestream** (v0.5.x, actively maintained) delivers exactly the WAL→S3 +
+  point-in-time restore this ADR calls for, operating on the *existing* SQLite
+  file with no driver or app-code change. `hscontrol/db/db.go` already ignores
+  `_litestream_*` tables — the choice was pre-anticipated.
+
+**Decision unchanged** (single-node SQLite family + WAL→S3, no cluster,
+reversible); only the tool is pinned: **Litestream on the SQLite file.**
+Config `litestream.yml`, drill `scripts/restore-drill.sh`, runbook
+`docs/ops/backup-restore.md`. The engine remains reversible; revisit at #11.

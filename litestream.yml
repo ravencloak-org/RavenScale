@@ -1,0 +1,28 @@
+# Litestream configuration — RavenScale control-plane datastore backup (P0-3, ADR-0005).
+#
+# Streams the SQLite WAL to S3-compatible object storage continuously, giving
+# point-in-time restore. Single-node, no clustering (ADR-0005): "HA" at Phase
+# 0–1 means fast restore, not automatic failover.
+#
+# Headscale writes its DB in WAL mode by default (sqliteconfig.Default →
+# JournalModeWAL), which is litestream's only prerequisite.
+#
+# All values are environment-driven so this file ships as-is; set the vars in
+# the deployment (NixOS systemd unit, container env, etc.). Restore drill and
+# runbook: docs/ops/backup-restore.md. Validate a config with:
+#   litestream databases -config litestream.yml
+dbs:
+  - path: ${RAVENSCALE_DB_PATH}         # e.g. /var/lib/headscale/db.sqlite
+    replicas:
+      - type: s3
+        bucket: ${LITESTREAM_S3_BUCKET}
+        path: ${LITESTREAM_S3_PATH}     # key prefix within the bucket, e.g. ravenscale/control
+        region: ${LITESTREAM_S3_REGION}
+        endpoint: ${LITESTREAM_S3_ENDPOINT} # blank for AWS; set for MinIO/R2/etc.
+        # Credentials via AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY in the env.
+
+        # Retain 72h of point-in-time granularity; snapshot daily.
+        retention: 72h
+        snapshot-interval: 24h
+        # Sync WAL to S3 every second (default 1s); bounds RPO to ~1s of writes.
+        sync-interval: 1s

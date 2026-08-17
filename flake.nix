@@ -227,6 +227,10 @@
           buildInputs =
             devDeps
             ++ [
+              # Datastore backup/restore tooling (P0-3, ADR-0005) — lets
+              # `scripts/restore-drill.sh` run in the dev shell and CI.
+              pkgs.litestream
+
               (pkgs.writeShellScriptBin
                 "nix-vendor-sri"
                 ''

@@ -50,6 +50,13 @@ test: check-deps $(GO_SOURCES) go.mod go.sum
 	@echo "Running Go tests..."
 	go test -race ./...
 
+# Datastore backup/restore drill (P0-3, ADR-0005). Requires litestream + python3
+# (both in the nix dev shell). See docs/ops/backup-restore.md.
+.PHONY: restore-drill
+restore-drill:
+	@echo "Running datastore restore drill..."
+	./scripts/restore-drill.sh
+
 
 # Formatting targets
 .PHONY: fmt

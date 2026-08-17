@@ -123,6 +123,34 @@
     };
   };
 
+  # Datastore backup: stream the SQLite WAL to S3 (P0-3, ADR-0005).
+  # Headscale writes WAL by default; see docs/ops/backup-restore.md and the
+  # repo-root litestream.yml. Restore drill: scripts/restore-drill.sh.
+  services.litestream = {
+    enable = true;
+    settings = {
+      dbs = [
+        {
+          path = "/var/lib/headscale/db.sqlite";
+          replicas = [
+            {
+              type = "s3";
+              bucket = "my-bucket";
+              path = "ravenscale/control";
+              region = "us-east-1";
+              # endpoint = "https://..."; # set for MinIO/R2/etc.
+              retention = "72h";
+              snapshot-interval = "24h";
+            }
+          ];
+        }
+      ];
+    };
+  };
+  # Provide S3 credentials to the litestream unit out-of-band, e.g.:
+  #   systemd.services.litestream.serviceConfig.EnvironmentFile = "/run/secrets/litestream-s3.env";
+  # containing AWS_ACCESS_KEY_ID / AWS_SECRET_ACCESS_KEY.
+
   # Optional: Open firewall ports
   networking.firewall = {
     allowedTCPPorts = [ 8080 ];
