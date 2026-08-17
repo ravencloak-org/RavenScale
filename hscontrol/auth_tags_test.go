@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juanfont/headscale/hscontrol/db"
 	"github.com/juanfont/headscale/hscontrol/mapper"
 	"github.com/juanfont/headscale/hscontrol/types"
 	"github.com/stretchr/testify/assert"
@@ -738,7 +739,7 @@ func TestTaggedNodeRestartPreservesNilExpiry(t *testing.T) {
 
 	var dbNode types.Node
 	require.NoError(t,
-		app.state.DB().DB.First(&dbNode, nodeAfterRestart.ID().Uint64()).Error)
+		app.state.DB().DB.WithContext(db.DefaultTenantCtx()).First(&dbNode, nodeAfterRestart.ID().Uint64()).Error)
 	assert.Nil(t, dbNode.Expiry,
 		"database expiry column must be NULL after restart, not a pointer to zero-time")
 }
@@ -805,7 +806,7 @@ func TestUntaggedNodeRestartPreservesNilExpiry(t *testing.T) {
 
 	var dbNode types.Node
 	require.NoError(t,
-		app.state.DB().DB.First(&dbNode, nodeAfterRestart.ID().Uint64()).Error)
+		app.state.DB().DB.WithContext(db.DefaultTenantCtx()).First(&dbNode, nodeAfterRestart.ID().Uint64()).Error)
 	assert.Nil(t, dbNode.Expiry,
 		"database expiry column must be NULL after restart, not a pointer to zero-time "+
 			"(this is what `sqlite3 ... 'select expiry from nodes'` sees)")
@@ -1566,7 +1567,7 @@ func TestIssue3371_TaggedNodeLogoutDoesNotSetExpiry(t *testing.T) {
 	// persisted expiry survives restart and re-triggers the lockout.
 	var dbNode types.Node
 	require.NoError(t,
-		app.state.DB().DB.First(&dbNode, nodeAfterLogout.ID().Uint64()).Error)
+		app.state.DB().DB.WithContext(db.DefaultTenantCtx()).First(&dbNode, nodeAfterLogout.ID().Uint64()).Error)
 	assert.Nil(t, dbNode.Expiry,
 		"issue #3371 root cause (a): tagged node's DB expiry must remain NULL after logout")
 }

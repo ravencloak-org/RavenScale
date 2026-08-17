@@ -592,7 +592,7 @@ func TestFullMapResponseSurvivesPeerWithInvalidName(t *testing.T) {
 			good := database.CreateRegisteredNodeForTest(user, "good") // peer, valid control
 
 			// Simulate a legacy/corrupt row that v29 loads verbatim.
-			require.NoError(t, database.DB.
+			require.NoError(t, database.DB.WithContext(db.DefaultTenantCtx()).
 				Model(&types.Node{}).
 				Where("id = ?", bad.ID).
 				Update("given_name", tt.badName).Error)

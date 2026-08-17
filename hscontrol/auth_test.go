@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/juanfont/headscale/hscontrol/db"
 	"github.com/juanfont/headscale/hscontrol/mapper"
 	"github.com/juanfont/headscale/hscontrol/types"
 	"github.com/stretchr/testify/assert"
@@ -3404,7 +3405,7 @@ func TestIssue2830_ExistingNodeReregistersWithExpiredKey(t *testing.T) {
 	// Now expire the key by updating it in the database to have an expiry in the past.
 	// This simulates the real-world scenario where a key expires after initial registration.
 	pastExpiry := time.Now().Add(-1 * time.Hour)
-	err = app.state.DB().DB.Model(&types.PreAuthKey{}).
+	err = app.state.DB().DB.WithContext(db.DefaultTenantCtx()).Model(&types.PreAuthKey{}).
 		Where("id = ?", pak.ID).
 		Update("expiration", pastExpiry).Error
 	require.NoError(t, err, "should be able to update key expiration")
@@ -3846,7 +3847,7 @@ func TestDeletedPreAuthKeyNotRecreatedOnNodeUpdate(t *testing.T) {
 	// Verify the PreAuthKey exists in the database
 	var pakCount int64
 
-	err = app.state.DB().DB.Model(&types.PreAuthKey{}).Where("id = ?", pakID).Count(&pakCount).Error
+	err = app.state.DB().DB.WithContext(db.DefaultTenantCtx()).Model(&types.PreAuthKey{}).Where("id = ?", pakID).Count(&pakCount).Error
 	require.NoError(t, err)
 	require.Equal(t, int64(1), pakCount, "PreAuthKey should exist in database")
 
@@ -3857,7 +3858,7 @@ func TestDeletedPreAuthKeyNotRecreatedOnNodeUpdate(t *testing.T) {
 	require.NoError(t, err, "deleting PreAuthKey should succeed")
 
 	// Verify the PreAuthKey is gone from the database
-	err = app.state.DB().DB.Model(&types.PreAuthKey{}).Where("id = ?", pakID).Count(&pakCount).Error
+	err = app.state.DB().DB.WithContext(db.DefaultTenantCtx()).Model(&types.PreAuthKey{}).Where("id = ?", pakID).Count(&pakCount).Error
 	require.NoError(t, err)
 	require.Equal(t, int64(0), pakCount, "PreAuthKey should be deleted from database")
 	t.Log("PreAuthKey deleted from database")
@@ -3865,7 +3866,7 @@ func TestDeletedPreAuthKeyNotRecreatedOnNodeUpdate(t *testing.T) {
 	// Verify the node's auth_key_id is now NULL in the database
 	var dbNode types.Node
 
-	err = app.state.DB().DB.First(&dbNode, node.ID().Uint64()).Error
+	err = app.state.DB().DB.WithContext(db.DefaultTenantCtx()).First(&dbNode, node.ID().Uint64()).Error
 	require.NoError(t, err)
 	require.Nil(t, dbNode.AuthKeyID, "node's AuthKeyID should be NULL after PreAuthKey deletion")
 	t.Log("Node's AuthKeyID is NULL in database")
@@ -3892,7 +3893,7 @@ func TestDeletedPreAuthKeyNotRecreatedOnNodeUpdate(t *testing.T) {
 	t.Log("Simulated MapRequest update completed")
 
 	// THE CRITICAL CHECK: Verify the PreAuthKey was NOT recreated
-	err = app.state.DB().DB.Model(&types.PreAuthKey{}).Where("id = ?", pakID).Count(&pakCount).Error
+	err = app.state.DB().DB.WithContext(db.DefaultTenantCtx()).Model(&types.PreAuthKey{}).Where("id = ?", pakID).Count(&pakCount).Error
 	require.NoError(t, err)
 	require.Equal(t, int64(0), pakCount,
 		"BUG: PreAuthKey was recreated! The deleted PreAuthKey should NOT reappear after node update")

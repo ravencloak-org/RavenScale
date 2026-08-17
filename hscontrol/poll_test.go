@@ -160,7 +160,7 @@ func TestServeLongPollWritesErrorWhenInitialMapFails(t *testing.T) {
 
 	database, err := db.NewHeadscaleDatabase(app.cfg)
 	require.NoError(t, err)
-	require.NoError(t, database.DB.
+	require.NoError(t, database.DB.WithContext(db.DefaultTenantCtx()).
 		Model(&types.Node{}).
 		Where("id = ?", createdNode.ID).
 		Update("given_name", "").Error)
