@@ -1,0 +1,42 @@
+# RavenScale datastore — libSQL (sqld) single node + WAL->S3 backup (ADR-0005).
+# No cluster. Single writer. Durability = continuous WAL replication to object
+# storage (bottomless). Revisit clustering/Postgres at HA #11.
+#
+#   cp .env.example .env   # fill in the S3_* values, then:
+#   docker compose up -d
+#
+# This file is the datastore unit. The full stack (Headscale + this) is wired
+# by deploy/ (P0-5). Consumed there via `extends` / include.
+name: ravenscale-datastore
+
+services:
+  sqld:
+    image: ghcr.io/tursodatabase/libsql-server:${SQLD_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      SQLD_HTTP_LISTEN_ADDR: 0.0.0.0:8080
+      SQLD_DB_PATH: /var/lib/sqld/ravenscale.db
+      # --- WAL -> S3 backup (bottomless) ---
+      SQLD_ENABLE_BOTTOMLESS_REPLICATION: "true"
+      LIBSQL_BOTTOMLESS_BUCKET: ${S3_BUCKET}
+      LIBSQL_BOTTOMLESS_ENDPOINT: ${S3_ENDPOINT}
+      LIBSQL_BOTTOMLESS_AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID}
+      LIBSQL_BOTTOMLESS_AWS_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY}
+      LIBSQL_BOTTOMLESS_AWS_DEFAULT_REGION: ${S3_REGION:-us-east-1}
+      # --- auth: JWT (Ed25519). Empty = OPEN; set before exposing anywhere. ---
+      SQLD_AUTH_JWT_KEY: ${SQLD_AUTH_JWT_KEY:-}
+    volumes:
+      - sqld-data:/var/lib/sqld
+    ports:
+      # Bind to loopback by default. The app talks to sqld over the compose
+      # network; do NOT publish this to 0.0.0.0 without SQLD_AUTH_JWT_KEY set.
+      - "${SQLD_BIND:-127.0.0.1:8080}:8080"
+    # ponytail: no in-container healthcheck — the image ships no HTTP client
+    # (no curl/wget/nc) and it has no bash for /dev/tcp. Liveness is GET /health
+    # (returns 200), probed from the orchestration layer: the P0-5 install
+    # script waits on it, and scripts/backup-verify.sh covers backup liveness.
+    # Add a real healthcheck here only if the image gains an HTTP client.
+    stop_grace_period: 30s  # let bottomless flush the final WAL frames on stop
+
+volumes:
+  sqld-data:
